@@ -1,0 +1,346 @@
+#!/bin/bash
+
+# MOTU M4 Dynamic Optimizer - Monitor Module
+# Contains monitoring loops for continuous and live xrun monitoring
+
+# ============================================================================
+# MAIN MONITORING LOOP
+# ============================================================================
+
+# Main monitoring loop for continuous optimization
+main_monitoring_loop() {
+    log_message "🚀 $OPTIMIZER_NAME v$OPTIMIZER_VERSION started"
+    log_message "🏗️  $OPTIMIZER_STRATEGY"
+    log_message "📊 System: Ubuntu 24.04, $(nproc) CPU cores"
+    log_message "🎯 Process pinning:"
+    log_message "   P-Cores DAW/Plugins: $DAW_CPUS"
+    log_message "   P-Cores JACK/PipeWire: $AUDIO_MAIN_CPUS"
+    log_message "   E-Cores IRQ-Handling: $IRQ_CPUS"
+    log_message "   E-Cores Background: $BACKGROUND_CPUS"
+    log_message "🎵 Xrun monitoring: Activated"
+
+    # Optimize script performance (run on background E-Cores)
+    optimize_script_performance
+
+    # Initial CPU isolation check
+    check_cpu_isolation
+
+    local current_state="unknown"
+    local check_counter=0
+    local xrun_check_counter=0
+    local last_xrun_count=0
+
+    while true; do
+        local motu_connected
+        motu_connected=$(check_motu_m4)
+
+        if [ "$motu_connected" = "true" ]; then
+            if [ "$current_state" != "optimized" ]; then
+                activate_audio_optimizations
+                current_state="optimized"
+                check_counter=0
+            else
+                # Check process affinity only every 30 seconds (performance optimization)
+                check_counter=$((check_counter + 1))
+                if [ $check_counter -ge 6 ]; then
+                    optimize_audio_process_affinity
+                    check_counter=0
+                fi
+            fi
+
+            # Xrun monitoring every 10 seconds (2 cycles)
+            xrun_check_counter=$((xrun_check_counter + 1))
+            if [ $xrun_check_counter -ge 2 ]; then
+                _check_and_report_xruns "$last_xrun_count"
+                last_xrun_count=$?
+                xrun_check_counter=0
+            fi
+        else
+            if [ "$current_state" != "standard" ]; then
+                deactivate_audio_optimizations
+                current_state="standard"
+            fi
+        fi
+
+        sleep "$MONITOR_INTERVAL"
+    done
+}
+
+# Check and report xruns during monitoring
+# Args: $1 = last xrun count
+# Returns: current xrun count via exit code (capped at 255)
+_check_and_report_xruns() {
+    local last_count="$1"
+
+    if ! command -v journalctl &> /dev/null; then
+        return 0
+    fi
+
+    # Check xruns of last 30 seconds
+    local current_xruns
+    current_xruns=$(journalctl --since "30 seconds ago" --no-pager -q 2>/dev/null | \
+        grep -i "mod\.jack-tunnel.*xrun" | wc -l || echo "0")
+
+    if [ "$current_xruns" -gt "$XRUN_WARNING_THRESHOLD" ]; then
+        log_message "⚠️ Xrun-Warning: $current_xruns Xruns in 30s (Threshold: $XRUN_WARNING_THRESHOLD)"
+        log_message "💡 Recommendation: Increase buffer size or reduce CPU load"
+    elif [ "$current_xruns" -gt 0 ] && [ "$current_xruns" -ne "$last_count" ]; then
+        log_message "🎵 Xrun-Monitor: $current_xruns Xruns in last 30s"
+    fi
+
+    # Return current count (capped at 255 for exit code)
+    [ "$current_xruns" -gt 255 ] && current_xruns=255
+    return "$current_xruns"
+}
+
+# ============================================================================
+# LIVE XRUN MONITORING
+# ============================================================================
+
+# Live xrun monitoring with improved PipeWire-JACK-Tunnel detection
+live_xrun_monitoring() {
+    echo "=== MOTU M4 Live Xrun-Monitor ==="
+    echo "⚡ Monitors JACK/PipeWire xruns in real-time"
+    echo "📊 Session started: $(date '+%H:%M:%S')"
+
+    # Show current JACK settings at session start
+    _show_live_monitor_jack_info
+
+    echo "🛑 Press Ctrl+C to exit"
+    echo ""
+
+    # Initial xrun counter from current log state
+    local initial_xruns=0
+    if command -v journalctl &> /dev/null; then
+        initial_xruns=$(journalctl --since "1 minute ago" --no-pager -q 2>/dev/null | \
+            grep -i "mod\.jack-tunnel.*xrun" | wc -l || echo "0")
+    fi
+
+    local xrun_total=0
+    local xrun_session_start
+    xrun_session_start=$(date +%s)
+    local max_xruns_per_interval=0
+
+    # Xrun rate tracking for last 30 seconds
+    local xrun_timestamps=()
+
+    while true; do
+        _live_monitor_cycle "$initial_xruns" "$xrun_session_start" "$max_xruns_per_interval" "${xrun_timestamps[@]}"
+        sleep 2
+    done
+}
+
+# Show JACK info at live monitor start
+_show_live_monitor_jack_info() {
+    local jack_info
+    jack_info=$(get_jack_settings)
+    local jack_status bufsize samplerate nperiods
+    jack_status=$(echo "$jack_info" | cut -d'|' -f1)
+    bufsize=$(echo "$jack_info" | cut -d'|' -f2)
+    samplerate=$(echo "$jack_info" | cut -d'|' -f3)
+    nperiods=$(echo "$jack_info" | cut -d'|' -f4)
+
+    echo "🎵 JACK Status: $jack_status"
+    if [ "$jack_status" = "✅ Active" ]; then
+        local settings_text="${bufsize}@${samplerate}Hz"
+        [ "$nperiods" != "unknown" ] && settings_text="$settings_text, $nperiods periods"
+
+        local latency_ms
+        latency_ms=$(calculate_latency_ms "$bufsize" "$samplerate")
+        echo "   Settings: $settings_text (${latency_ms}ms Latency)"
+
+        # Warning for aggressive settings
+        if [ "$bufsize" != "unknown" ]; then
+            if [ "$bufsize" -le 64 ]; then
+                echo "   ⚠️ Very aggressive buffer size - Xruns likely"
+            elif [ "$bufsize" -le 128 ]; then
+                echo "   🟡 Moderate buffer size - Increase to 256+ if xruns occur"
+            fi
+        fi
+    fi
+}
+
+# Single cycle of live monitoring
+# Args: $1 = initial_xruns, $2 = session_start, $3 = max_xruns, $4+ = timestamps
+_live_monitor_cycle() {
+    local initial_xruns="$1"
+    local xrun_session_start="$2"
+    local max_xruns_per_interval="$3"
+    shift 3
+    local xrun_timestamps=("$@")
+
+    # Current xruns from logs since session start
+    local current_total_xruns=0
+    local new_xruns_this_interval=0
+
+    if command -v journalctl &> /dev/null; then
+        # All xruns since session start
+        local session_start_time
+        session_start_time=$(date -d "@$xrun_session_start" '+%Y-%m-%d %H:%M:%S')
+        current_total_xruns=$(journalctl --since "$session_start_time" --no-pager -q 2>/dev/null | \
+            grep -i "mod\.jack-tunnel.*xrun" | wc -l || echo "0")
+
+        # New xruns of last 5 seconds
+        new_xruns_this_interval=$(journalctl --since "5 seconds ago" --no-pager -q 2>/dev/null | \
+            grep -i "mod\.jack-tunnel.*xrun" | wc -l || echo "0")
+    fi
+
+    # Session xruns (minus initial)
+    local xrun_total=$((current_total_xruns - initial_xruns))
+    [ "$xrun_total" -lt 0 ] && xrun_total=0
+
+    # Tracking for new xruns
+    local current_timestamp
+    current_timestamp=$(date +%s)
+    if [ "$new_xruns_this_interval" -gt 0 ]; then
+        xrun_timestamps+=("$current_timestamp")
+    fi
+
+    # Remove old timestamps (older than 30 seconds)
+    local cutoff_time=$((current_timestamp - 30))
+    local new_timestamps=()
+    for ts in "${xrun_timestamps[@]}"; do
+        if [ "$ts" -gt "$cutoff_time" ]; then
+            new_timestamps+=("$ts")
+        fi
+    done
+    xrun_timestamps=("${new_timestamps[@]}")
+
+    # Xrun rate in last 30 seconds
+    local xrun_rate_30s=${#xrun_timestamps[@]}
+
+    # Max xruns per interval tracking
+    if [ "$new_xruns_this_interval" -gt "$max_xruns_per_interval" ]; then
+        max_xruns_per_interval=$new_xruns_this_interval
+    fi
+
+    # Audio process info
+    local audio_processes
+    audio_processes=$(ps -eo pid,comm --no-headers 2>/dev/null | \
+        grep -E "jackd|pipewire|yoshimi|pianoteq|qjackctl" | wc -l)
+
+    # MOTU M4 status
+    local motu_status="❌ Not detected"
+    if [ "$(check_motu_m4)" = "true" ]; then
+        motu_status="✅ Connected"
+    fi
+
+    # Session time
+    local session_duration=$((current_timestamp - xrun_session_start))
+    local session_minutes=$((session_duration / 60))
+    local session_seconds=$((session_duration % 60))
+
+    # Status icon based on current xruns
+    local status_icon="✅"
+    [ "$new_xruns_this_interval" -gt 0 ] && status_icon="⚠️"
+    [ "$new_xruns_this_interval" -gt 2 ] && status_icon="❌"
+
+    # Live display with JACK settings (compact)
+    local current_display_time
+    current_display_time=$(date '+%H:%M:%S')
+
+    # Compact JACK info for live display
+    local jack_compact
+    jack_compact=$(get_jack_compact_info)
+
+    printf "\r[%s] %s MOTU M4: %s | 🎯 Audio: %d | %s | ⚠️ Session: %d | 🔥 30s: %d | 📈 Max: %d | ⏱️ %02d:%02d" \
+           "$current_display_time" "$status_icon" "$motu_status" "$audio_processes" "$jack_compact" \
+           "$xrun_total" "$xrun_rate_30s" "$max_xruns_per_interval" "$session_minutes" "$session_seconds"
+
+    # On new xruns: New line with details and recommendations
+    if [ "$new_xruns_this_interval" -gt 0 ]; then
+        echo ""
+        _show_live_xrun_details "$current_display_time" "$new_xruns_this_interval" "$xrun_rate_30s"
+    fi
+}
+
+# Show xrun details during live monitoring
+_show_live_xrun_details() {
+    local display_time="$1"
+    local new_xruns="$2"
+    local xrun_rate="$3"
+
+    # Show the latest xrun message
+    echo "🚨 [$display_time] New xruns: $new_xruns"
+
+    local latest_xrun
+    latest_xrun=$(journalctl --since "5 seconds ago" --no-pager -q 2>/dev/null | \
+        grep -i "mod\.jack-tunnel.*xrun" | tail -1)
+
+    if [ -n "$latest_xrun" ]; then
+        local xrun_details
+        xrun_details=$(echo "$latest_xrun" | cut -d' ' -f5-)
+        echo "📋 Details: $xrun_details"
+    fi
+
+    # Dynamic recommendation on xruns
+    local jack_info
+    jack_info=$(get_jack_settings)
+    local jack_status bufsize samplerate nperiods
+    jack_status=$(echo "$jack_info" | cut -d'|' -f1)
+    bufsize=$(echo "$jack_info" | cut -d'|' -f2)
+    samplerate=$(echo "$jack_info" | cut -d'|' -f3)
+    nperiods=$(echo "$jack_info" | cut -d'|' -f4)
+
+    if [ "$jack_status" = "✅ Active" ] && [ "$bufsize" != "unknown" ]; then
+        if [ "$bufsize" -le 64 ]; then
+            echo "💡 Recommendation: Increase buffer from $bufsize to 128+ samples"
+        elif [ "$bufsize" -le 128 ] && [ "$xrun_rate" -gt 5 ]; then
+            echo "💡 Recommendation: Increase buffer from $bufsize to 256 samples"
+        elif [ "$nperiods" != "unknown" ] && [ "$nperiods" -eq 2 ] && [ "$xrun_rate" -gt 3 ]; then
+            echo "💡 Tip: Use 3 periods instead of $nperiods for better latency tolerance"
+        fi
+    fi
+}
+
+# ============================================================================
+# DELAYED SERVICE START
+# ============================================================================
+
+# Delayed optimization for system service (waits for user audio services)
+delayed_service_start() {
+    local motu_connected
+    motu_connected=$(check_motu_m4)
+
+    if [ "$motu_connected" = "true" ]; then
+        log_message "🎵 Delayed system service: Waiting for user session audio processes"
+
+        # Intelligent wait time for user audio services
+        local audio_wait=0
+        local found_user_audio=false
+
+        while [ $audio_wait -lt $MAX_AUDIO_WAIT ]; do
+            # Check for user audio processes (not just system audio)
+            local user_pipewire user_jack
+            user_pipewire=$(pgrep -f "pipewire" | wc -l)
+            user_jack=$(pgrep -f "jackdbus" | wc -l)
+
+            if [ "$user_pipewire" -ge 2 ] || [ "$user_jack" -ge 1 ]; then
+                log_message "🎯 User audio services detected after ${audio_wait}s (PipeWire: $user_pipewire, JACK: $user_jack)"
+                found_user_audio=true
+                break
+            fi
+
+            sleep 2
+            audio_wait=$((audio_wait + 2))
+
+            # Progress log every 10 seconds
+            if [ $((audio_wait % 10)) -eq 0 ]; then
+                log_message "⏳ Waiting for user audio services... ${audio_wait}/${MAX_AUDIO_WAIT}s (PipeWire: $user_pipewire, JACK: $user_jack)"
+            fi
+        done
+
+        if [ "$found_user_audio" = "true" ]; then
+            # Additional 3 seconds for service initialization
+            sleep 3
+            log_message "🎵 Starting delayed audio optimization for user session processes"
+            activate_audio_optimizations
+        else
+            log_message "⚠️  Timeout: No user audio services after ${MAX_AUDIO_WAIT}s detected, starting standard optimization"
+            activate_audio_optimizations
+        fi
+    else
+        log_message "🔧 MOTU M4 not detected - Deactivating optimizations"
+        deactivate_audio_optimizations
+    fi
+}
