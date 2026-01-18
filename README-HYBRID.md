@@ -1,419 +1,419 @@
 # MOTU M4 Dynamic Optimizer - Hybrid System
 
-## 🚀 Übersicht
+## 🚀 Overview
 
-Das **Hybrid-System** kombiniert **udev-Regeln** mit **systemd-Services** für optimale Performance und Usability und bietet **Professional-Grade Audio-Monitoring** mit Echtzeit-Xrun-Erkennung:
+The **Hybrid System** combines **udev rules** with **systemd services** for optimal performance and usability, offering **Professional-Grade Audio Monitoring** with real-time xrun detection:
 
 ---
 
-## 🧠 Wichtige Erkenntnisse & Best Practices (2024)
+## 🧠 Key Insights & Best Practices (2024)
 
-- **Governor-Setzung ist für XRuns und stabile Audio-Performance entscheidend!**
-  - Auf modernen Systemen (Ubuntu 24.04, Intel Core Ultra, aktueller Kernel) reicht EPP-Management (`powerprofilesctl`) oft NICHT für garantiert xrun-freien Betrieb bei niedrigen Latenzen.
-  - Das gezielte Setzen des CPU-Governors auf `performance` für Audio-relevante Kerne ist weiterhin ein valides und oft notwendiges Mittel für professionelle Audio-Workflows.
-- **Direktes Governor-Setzen ist auf modernen Systemen sicher, solange sauber zurückgesetzt wird.**
-  - Das Hybrid-System setzt die Governor temporär und stellt beim Entfernen des Audio-Interfaces alles wieder auf Standard zurück.
-  - Dadurch bleiben KDE/GNOME-Energieverwaltung und `powerprofilesctl` nach der Session voll funktionsfähig.
-- **`power-profiles-daemon` läuft auf modernen Desktops immer im Hintergrund, steuert aber nur noch EPP, nicht mehr den Governor.**
-  - Das direkte Setzen des Governors kollidiert nicht mehr mit dem Daemon, solange keine parallelen, dauerhaften Änderungen erfolgen.
-- **Automatisierung via systemd/udev ist der optimale Weg für Plug&Play-Audio-Optimierung.**
-  - Die Integration sorgt für sofortige Aktivierung/Deaktivierung der Optimierungen beim An-/Abstecken des Interfaces.
-- **Dynamische JACK-Settings-Erkennung ist entscheidend für präzise Empfehlungen.**
-  - Das System erkennt automatisch aktuelle Buffer-Größe, Samplerate und Periods-Anzahl
-  - Empfehlungen werden kontextuell basierend auf den tatsächlich verwendeten JACK-Parametern generiert
-  - Root-Kompatibilität durch User-Context-Detection für systemd-Services
+- **Governor settings are crucial for XRuns and stable audio performance!**
+  - On modern systems (Ubuntu 24.04, Intel Core Ultra, current kernel), EPP management (`powerprofilesctl`) is often NOT sufficient for guaranteed xrun-free operation at low latencies.
+  - Explicitly setting the CPU governor to `performance` for audio-relevant cores remains a valid and often necessary measure for professional audio workflows.
+- **Direct governor setting is safe on modern systems, as long as it's cleanly reset.**
+  - The Hybrid System sets the governor temporarily and restores everything to standard when the audio interface is removed.
+  - This ensures KDE/GNOME power management and `powerprofilesctl` remain fully functional after the session.
+- **`power-profiles-daemon` always runs in the background on modern desktops, but only controls EPP, not the governor anymore.**
+  - Direct governor setting no longer conflicts with the daemon, as long as no parallel, permanent changes are made.
+- **Automation via systemd/udev is the optimal path for plug&play audio optimization.**
+  - The integration ensures immediate activation/deactivation of optimizations when plugging/unplugging the interface.
+- **Dynamic JACK settings detection is crucial for precise recommendations.**
+  - The system automatically detects current buffer size, sample rate, and periods count
+  - Recommendations are generated contextually based on actual JACK parameters in use
+  - Root compatibility through user context detection for systemd services
 - **Best Practice:**  
-  - Nutze das Hybrid-System für Audio-Sessions, setze nach der Session alles zurück (wird automatisch erledigt).
-  - Für Alltagsbetrieb reicht EPP über `powerprofilesctl` oder KDE/Plasma-Energieverwaltung.
-  - Dokumentiere diesen Workflow für alle Nutzer, damit klar ist, warum und wann Governor-Änderungen sinnvoll sind.
+  - Use the Hybrid System for audio sessions, reset everything after the session (done automatically).
+  - For everyday use, EPP via `powerprofilesctl` or KDE/Plasma power management is sufficient.
+  - Document this workflow for all users so it's clear why and when governor changes make sense.
 
 ---
 
-- ⚡ **Instant-Reaktion** beim Ein-/Ausstecken des MOTU M4
-- 🔋 **Keine permanenten Ressourcen** wenn Interface nicht angeschlossen
-- 🎯 **Automatische Service-Verwaltung** über USB-Ereignisse
-- 🔄 **Plug-and-Play** ohne manuelle Eingriffe
-- 🎵 **Echtzeit-Xrun-Monitoring** mit Live-Erkennung und automatischen Warnungen
-- 📊 **Professional Audio-Performance-Monitoring** ohne externe Tools
-- 🎛️ **Dynamische JACK-Settings-Erkennung** mit kontextuellen Empfehlungen
-- 🔄 **Konsistente Xrun-Bewertung** über alle Monitoring-Modi
-- 🚀 **Root-kompatible User-JACK-Erkennung** für systemd-Integration
+- ⚡ **Instant response** when plugging/unplugging the MOTU M4
+- 🔋 **No permanent resources** when interface is not connected
+- 🎯 **Automatic service management** via USB events
+- 🔄 **Plug-and-play** without manual intervention
+- 🎵 **Real-time xrun monitoring** with live detection and automatic warnings
+- 📊 **Professional audio performance monitoring** without external tools
+- 🎛️ **Dynamic JACK settings detection** with contextual recommendations
+- 🔄 **Consistent xrun evaluation** across all monitoring modes
+- 🚀 **Root-compatible user JACK detection** for systemd integration
 
-## 📋 Systemanforderungen
+## 📋 System Requirements
 
-- Ubuntu 24.04 oder kompatible Linux-Distribution
-- Intel Core Ultra 7 Prozessor (20 Kerne) oder ähnlich
-- MOTU M4 Audio-Interface
-- Root-Berechtigung für Installation
+- Ubuntu 24.04 or compatible Linux distribution
+- Intel Core Ultra 7 processor (20 cores) or similar
+- MOTU M4 Audio Interface
+- Root privileges for installation
 
 ## 🛠️ Installation
 
-### 1. Hybrid-System installieren
+### 1. Install Hybrid System
 
 ```bash
-# In das Projektverzeichnis wechseln
+# Navigate to project directory
 cd motu-m4-set_irq_affinity/
 
-# Installation starten
+# Start installation
 sudo ./install-hybrid-system.sh
 ```
 
-### 2. Installation überprüfen
+### 2. Verify Installation
 
 ```bash
-# Service-Status prüfen
+# Check service status
 sudo systemctl status motu-m4-dynamic-optimizer
 
-# udev-Regeln überprüfen
+# Verify udev rules
 ls -la /etc/udev/rules.d/99-motu-m4-audio-optimizer.rules
 
-# Live-Test: MOTU M4 aus- und einstecken
+# Live test: Unplug and plug in MOTU M4
 ```
 
-## ⚡ Funktionsweise
+## ⚡ How It Works
 
-### udev-Ereignisse
+### udev Events
 ```
-MOTU M4 angeschlossen → udev erkennt USB-Gerät 07fd:000b
+MOTU M4 connected    → udev detects USB device 07fd:000b
                      → systemctl start motu-m4-dynamic-optimizer
-                     → Optimierungen aktiviert
+                     → Optimizations activated
 
-MOTU M4 entfernt     → udev erkennt USB-Entfernung
+MOTU M4 removed      → udev detects USB removal
                      → systemctl stop motu-m4-dynamic-optimizer
-                     → Optimierungen deaktiviert
+                     → Optimizations deactivated
 ```
 
-### Service-Modus
-- **Type:** `simple` mit `RemainAfterExit=yes`
-- **ExecStart:** `once` (einmalige Aktivierung, kein Polling)
-- **ExecStop:** `stop` (saubere Deaktivierung)
+### Service Mode
+- **Type:** `simple` with `RemainAfterExit=yes`
+- **ExecStart:** `once` (one-time activation, no polling)
+- **ExecStop:** `stop` (clean deactivation)
 
-## 📊 Vorteile gegenüber dem Standard-System
+## 📊 Advantages Over Standard System
 
-| Aspekt | Standard (Polling) | Hybrid (Event-driven) |
+| Aspect | Standard (Polling) | Hybrid (Event-driven) |
 |--------|-------------------|----------------------|
-| **Reaktionszeit** | 5 Sekunden | Sofort |
-| **CPU-Verbrauch** | Permanent minimal | Nur bei aktivem Interface |
-| **RAM-Verbrauch** | 1-2MB permanent | 0MB wenn Interface weg |
-| **Usability** | Gut | Perfekt |
-| **Komplexität** | Einfach | Moderat |
-| **Xrun-Monitoring** | Basis | Professional-Grade |
-| **Live-Feedback** | Nein | Echtzeit |
+| **Response Time** | 5 seconds | Instant |
+| **CPU Usage** | Permanent minimal | Only with active interface |
+| **RAM Usage** | 1-2MB permanent | 0MB when interface removed |
+| **Usability** | Good | Perfect |
+| **Complexity** | Simple | Moderate |
+| **Xrun Monitoring** | Basic | Professional-Grade |
+| **Live Feedback** | No | Real-time |
 
-## 🧪 Testen und Debugging
+## 🧪 Testing and Debugging
 
-### Service-Status überwachen
+### Monitor Service Status
 ```bash
-# Live-Log verfolgen
+# Follow live log
 sudo journalctl -fu motu-m4-dynamic-optimizer
 
-# Service-Status
+# Service status
 sudo systemctl status motu-m4-dynamic-optimizer
 
-# Script-Status
+# Script status
 sudo /usr/local/bin/motu-m4-dynamic-optimizer.sh status
 ```
 
-### udev-Ereignisse überwachen
+### Monitor udev Events
 ```bash
-# USB-Ereignisse live verfolgen
+# Follow USB events live
 sudo udevadm monitor --property --subsystem-match=usb
 
-# Spezifisch für MOTU M4
+# Specifically for MOTU M4
 sudo udevadm monitor --property | grep -E "(07fd|000b|M4)"
 ```
 
-### Manuelle Tests
+### Manual Tests
 ```bash
-# Service manuell starten
+# Start service manually
 sudo systemctl start motu-m4-dynamic-optimizer
 
-# Service manuell stoppen
+# Stop service manually
 sudo systemctl stop motu-m4-dynamic-optimizer
 
-# Optimierungen manuell aktivieren
+# Activate optimizations manually
 sudo /usr/local/bin/motu-m4-dynamic-optimizer.sh once
 
-# Optimierungen manuell deaktivieren
+# Deactivate optimizations manually
 sudo /usr/local/bin/motu-m4-dynamic-optimizer.sh stop
 ```
 
-## 🔧 Konfiguration
+## 🔧 Configuration
 
-### udev-Regel anpassen
+### Customize udev Rule
 ```bash
 sudo nano /etc/udev/rules.d/99-motu-m4-audio-optimizer.rules
 
-# Nach Änderungen:
+# After changes:
 sudo udevadm control --reload-rules
 sudo udevadm trigger --subsystem-match=usb
 ```
 
-### Service-Parameter anpassen
+### Customize Service Parameters
 ```bash
 sudo nano /etc/systemd/system/motu-m4-dynamic-optimizer.service
 
-# Nach Änderungen:
+# After changes:
 sudo systemctl daemon-reload
 ```
 
 ## 🚨 Troubleshooting
 
-### Service startet nicht automatisch
+### Service Doesn't Start Automatically
 
-1. **udev-Regel prüfen:**
+1. **Check udev rule:**
 ```bash
-# Test der udev-Regel
+# Test the udev rule
 sudo udevadm test $(udevadm info -q path -n /dev/bus/usb/001/XXX)
 
-# XXX durch tatsächliche Device-Nummer ersetzen
+# Replace XXX with actual device number
 lsusb | grep "07fd:000b"
 ```
 
-2. **USB-Gerät-Pfad ermitteln:**
+2. **Find USB device path:**
 ```bash
-# MOTU M4 Device-Pfad finden
+# Find MOTU M4 device path
 find /sys/bus/usb/devices/ -name "idVendor" -exec grep -l "07fd" {} \;
 ```
 
-3. **Debug-Logging aktivieren:**
+3. **Enable debug logging:**
 ```bash
-# In udev-Regel die Debug-Zeilen aktivieren
+# Activate debug lines in udev rule
 sudo nano /etc/udev/rules.d/99-motu-m4-audio-optimizer.rules
 
-# System-Log überwachen
+# Monitor system log
 sudo journalctl -f | grep -i motu
 ```
 
-### Service läuft permanent
+### Service Runs Permanently
 
-Wenn der Service permanent läuft, wurde möglicherweise die alte Konfiguration nicht richtig deaktiviert:
+If the service runs permanently, the old configuration may not have been properly deactivated:
 
 ```bash
-# Auto-Start deaktivieren
+# Disable auto-start
 sudo systemctl disable motu-m4-dynamic-optimizer
 
-# Service stoppen
+# Stop service
 sudo systemctl stop motu-m4-dynamic-optimizer
 
-# Status prüfen
+# Check status
 sudo systemctl is-enabled motu-m4-dynamic-optimizer
-# Sollte "disabled" sein
+# Should be "disabled"
 ```
 
-### Zurück zum Standard-System
+### Revert to Standard System
 
 ```bash
-# Service wieder auf Auto-Start setzen
+# Set service to auto-start again
 sudo systemctl enable motu-m4-dynamic-optimizer
 sudo systemctl start motu-m4-dynamic-optimizer
 
-# udev-Regel entfernen
+# Remove udev rule
 sudo rm /etc/udev/rules.d/99-motu-m4-audio-optimizer.rules
 sudo udevadm control --reload-rules
 ```
 
-## 📈 Performance-Monitoring & Xrun-Erkennung
+## 📈 Performance Monitoring & Xrun Detection
 
-### 🎛️ Dynamische JACK-Settings-Integration (v4.1)
+### 🎛️ Dynamic JACK Settings Integration (v4.1)
 
-Das System erkennt jetzt **automatisch aktuelle JACK-Parameter** und liefert **kontextuelle Empfehlungen**:
+The system now **automatically detects current JACK parameters** and provides **contextual recommendations**:
 
-#### **Automatische JACK-Erkennung:**
+#### **Automatic JACK Detection:**
 ```bash
-# Ermittelt automatisch:
-🎵 JACK Status: ✅ Aktiv
-   Settings: 256@48000Hz, 3 periods (5.3ms Latenz)
+# Automatically detects:
+🎵 JACK Status: ✅ Active
+   Settings: 256@48000Hz, 3 periods (5.3ms latency)
 ```
 
-#### **Kontextuelle Empfehlungen:**
-- **Bei 256 Samples + wenige Xruns**: "Buffer von 256 auf 512 Samples erhöhen"
-- **Bei 128 Samples + viele Xruns**: "Buffer von 128 auf 1024 Samples oder höher erhöhen"  
-- **Bei 2 periods + Problemen**: "3 periods statt 2 für bessere Latenz-Toleranz"
-- **Bei >48kHz + Xruns**: "Samplerate von 96000Hz auf 48kHz reduzieren"
+#### **Contextual Recommendations:**
+- **256 samples + few xruns**: "Increase buffer from 256 to 512 samples"
+- **128 samples + many xruns**: "Increase buffer from 128 to 1024 samples or higher"  
+- **2 periods + problems**: "Use 3 periods instead of 2 for better latency tolerance"
+- **>48kHz + xruns**: "Reduce sample rate from 96000Hz to 48kHz"
 
-#### **Konsistente Bewertung:**
-Alle Modi verwenden **identische Xrun-Bewertungslogik**:
-- **0 Xruns**: ✅ Keine Probleme - Setup läuft optimal stabil
-- **1-4 Xruns**: 🟡 Gelegentliche Probleme - Buffer-Erhöhung bei Bedarf  
-- **5+ Xruns**: 🔴 Häufige Probleme - Aggressive Buffer-/Samplerate-Anpassung
+#### **Consistent Evaluation:**
+All modes use **identical xrun evaluation logic**:
+- **0 xruns**: ✅ No problems - Setup running optimally stable
+- **1-4 xruns**: 🟡 Occasional problems - Increase buffer if needed  
+- **5+ xruns**: 🔴 Frequent problems - Aggressive buffer/sample rate adjustment
 
-#### **Root-Kompatibilität:**
+#### **Root Compatibility:**
 ```bash
-# Als User
+# As user
 ./motu-m4-dynamic-optimizer.sh status
-# 🎵 JACK: ✅ Aktiv, Settings: 256@48000Hz
+# 🎵 JACK: ✅ Active, Settings: 256@48000Hz
 
-# Als root (für systemd-Services)
+# As root (for systemd services)
 sudo ./motu-m4-dynamic-optimizer.sh status  
-# 🎵 JACK: ✅ Aktiv, Settings: 256@48000Hz (via User-Context-Detection)
+# 🎵 JACK: ✅ Active, Settings: 256@48000Hz (via User-Context-Detection)
 ```
 
-### 🎵 Vier Monitoring-Modi für Professional Audio
+### 🎵 Four Monitoring Modes for Professional Audio
 
-Das System bietet jetzt **vier verschiedene Monitoring-Modi** für Professional Audio:
+The system now offers **four different monitoring modes** for professional audio:
 
-#### 1. Monitor-Modus (Kontinuierlich)
+#### 1. Monitor Mode (Continuous)
 ```bash
-# Kontinuierliche Überwachung mit automatischen Xrun-Warnungen
+# Continuous monitoring with automatic xrun warnings
 sudo /usr/local/bin/motu-m4-dynamic-optimizer.sh monitor
 
-# Beispiel-Output:
-# 2025-07-05 03:34:10 - ⚠️ Xrun-Warnung: 15 Xruns in 30s (Grenze: 10)
-# 2025-07-05 03:34:10 - 💡 Empfehlung: Buffer-Größe erhöhen oder CPU-Last reduzieren
+# Example output:
+# 2025-07-05 03:34:10 - ⚠️ Xrun warning: 15 xruns in 30s (threshold: 10)
+# 2025-07-05 03:34:10 - 💡 Recommendation: Increase buffer size or reduce CPU load
 ```
 
-#### 2. Status-Modus (Schnell)
+#### 2. Status Mode (Quick)
 ```bash
-# Kompakte Performance-Übersicht
+# Compact performance overview
 /usr/local/bin/motu-m4-dynamic-optimizer.sh status
 
-# Zeigt: IRQ-Status, Audio-Prozesse, Xrun-Zusammenfassung
-# ✅ Audio-Performance: Keine Probleme (5min)
+# Shows: IRQ status, audio processes, xrun summary
+# ✅ Audio performance: No problems (5min)
 ```
 
-#### 3. Detailed-Modus (Umfassend)
+#### 3. Detailed Mode (Comprehensive)
 ```bash
-# Detaillierte Hardware- und Xrun-Analyse
+# Detailed hardware and xrun analysis
 /usr/local/bin/motu-m4-dynamic-optimizer.sh detailed
 
-# Zeigt:
-# 🎵 Detaillierte Audio Xrun-Statistiken:
+# Shows:
+# 🎵 Detailed Audio Xrun Statistics:
 #    ⚠️ JACK Xruns (1min): 0
 #    ⚠️ PipeWire Xruns (1min): 4
-#    💡 Bei häufigeren Problemen: Buffer auf 256 Samples erhöhen
+#    💡 For frequent problems: Increase buffer to 256 samples
 ```
 
-#### 4. Live-Xrun-Monitor (Echtzeit)
+#### 4. Live Xrun Monitor (Real-time)
 ```bash
-# Echtzeit-Xrun-Überwachung während Audio-Sessions
+# Real-time xrun monitoring during audio sessions
 /usr/local/bin/motu-m4-dynamic-optimizer.sh live-xruns
 
-# Live-Output mit JACK-Settings:
-# 🎵 JACK Status: ✅ Aktiv
-#    Settings: 256@48000Hz, 3 periods (5.3ms Latenz)
-# [03:28:21] ❌ MOTU M4: ✅ Verbunden | 🎯 Audio: 4 | 🎵 256@48000Hz | ⚠️ Session: 3 | 🔥 30s: 5
-# 🚨 [03:28:21] Neue Xruns: 3
+# Live output with JACK settings:
+# 🎵 JACK Status: ✅ Active
+#    Settings: 256@48000Hz, 3 periods (5.3ms latency)
+# [03:28:21] ❌ MOTU M4: ✅ Connected | 🎯 Audio: 4 | 🎵 256@48000Hz | ⚠️ Session: 3 | 🔥 30s: 5
+# 🚨 [03:28:21] New xruns: 3
 # 📋 Details: mod.jack-tunnel: Xrun JACK:125 PipeWire:218
-# 💡 Empfehlung: Buffer von 256 auf 512 Samples erhöhen
+# 💡 Recommendation: Increase buffer from 256 to 512 samples
 ```
 
-### 🎛️ Praktische Anwendungsbeispiele
+### 🎛️ Practical Usage Examples
 
-#### **Szenario 1: Produktions-Setup mit gelegentlichen Xruns**
+#### **Scenario 1: Production Setup with Occasional Xruns**
 ```bash
 ./motu-m4-dynamic-optimizer.sh status
-# 🟡 Audio-Performance: Gelegentliche Probleme (3 Xruns)
-# 💡 Bei häufigeren Problemen: Buffer von 256 auf 512 Samples erhöhen
+# 🟡 Audio Performance: Occasional problems (3 xruns)
+# 💡 For frequent problems: Increase buffer from 256 to 512 samples
 # 
-# 💡 Dynamische Buffer-Empfehlungen:
-#    🎯 Aktuell: 256 Samples @ 48000Hz = 5.3ms
-#    🟢 Stabiler: 512 Samples = 10.7ms
+# 💡 Dynamic buffer recommendations:
+#    🎯 Current: 256 samples @ 48000Hz = 5.3ms
+#    🟢 More stable: 512 samples = 10.7ms
 ```
 
-#### **Szenario 2: Aggressives Low-Latency-Setup mit vielen Xruns**
+#### **Scenario 2: Aggressive Low-Latency Setup with Many Xruns**
 ```bash
 ./motu-m4-dynamic-optimizer.sh detailed
-# 🔴 Häufige Audio-Probleme erkannt (47 Xruns)
-# 💡 Buffer von 64 auf 256+ Samples erhöhen
-# 💡 Oder Samplerate von 96000Hz auf 48kHz reduzieren
-# 💡 Wichtig: 3 periods statt 2 verwenden für bessere Latenz-Toleranz
+# 🔴 Frequent audio problems detected (47 xruns)
+# 💡 Increase buffer from 64 to 256+ samples
+# 💡 Or reduce sample rate from 96000Hz to 48kHz
+# 💡 Important: Use 3 periods instead of 2 for better latency tolerance
 ```
 
-#### **Szenario 3: Live-Monitoring während Recording-Session**
+#### **Scenario 3: Live Monitoring During Recording Session**
 ```bash
 ./motu-m4-dynamic-optimizer.sh live-xruns
-# 🎵 JACK Status: ✅ Aktiv
-#    Settings: 128@96000Hz, 2 periods (1.3ms Latenz)
-#    ⚠️ Sehr aggressive Buffer-Größe - Xruns wahrscheinlich
+# 🎵 JACK Status: ✅ Active
+#    Settings: 128@96000Hz, 2 periods (1.3ms latency)
+#    ⚠️ Very aggressive buffer size - xruns likely
 # 
-# [15:30:45] ⚠️ MOTU M4: ✅ Verbunden | 🎵 128@96000Hz | ⚠️ Session: 12 | 🔥 30s: 8
-# 🚨 [15:30:45] Neue Xruns: 2
-# 💡 Empfehlung: Buffer von 128 auf 256 Samples erhöhen
+# [15:30:45] ⚠️ MOTU M4: ✅ Connected | 🎵 128@96000Hz | ⚠️ Session: 12 | 🔥 30s: 8
+# 🚨 [15:30:45] New xruns: 2
+# 💡 Recommendation: Increase buffer from 128 to 256 samples
 ```
 
-#### **Szenario 4: Root-Service mit User-JACK-Integration**
+#### **Scenario 4: Root Service with User JACK Integration**
 ```bash
 sudo systemctl status motu-m4-dynamic-optimizer
 # ● motu-m4-dynamic-optimizer.service - MOTU M4 Audio Optimizer
-#   🎵 JACK Status: ✅ Aktiv (via User-Context-Detection)
+#   🎵 JACK Status: ✅ Active (via User-Context-Detection)
 #   Settings: 256@48000Hz, 3 periods
-#   Audio-Performance: Keine Probleme
+#   Audio Performance: No problems
 ```
 
-### 🎯 Xrun-Erkennungstechnologie
+### 🎯 Xrun Detection Technology
 
-- **PipeWire-JACK-Tunnel Monitoring**: Erkennt `mod.jack-tunnel: Xrun` Nachrichten
-- **Identische Genauigkeit** wie Patchance/QJackCtl
-- **Zeitbasierte Analyse**: 5s, 30s, 1min, 5min Zeitfenster
-- **Automatische Warnungen**: Bei >10 Xruns/30s
-- **Live-Feedback**: Sofortige Benachrichtigung bei neuen Xruns
-- **Dynamische JACK-Parameter**: Automatische Erkennung von Buffer/Samplerate/Periods
-- **Kontextuelle Empfehlungen**: Spezifische Vorschläge basierend auf aktuellen Settings
-- **Konsistente Bewertungslogik**: Identische Xrun-Klassifizierung in allen Modi
+- **PipeWire-JACK-Tunnel Monitoring**: Detects `mod.jack-tunnel: Xrun` messages
+- **Identical accuracy** as Patchance/QJackCtl
+- **Time-based analysis**: 5s, 30s, 1min, 5min time windows
+- **Automatic warnings**: At >10 xruns/30s
+- **Live feedback**: Immediate notification on new xruns
+- **Dynamic JACK parameters**: Automatic detection of buffer/sample rate/periods
+- **Contextual recommendations**: Specific suggestions based on current settings
+- **Consistent evaluation logic**: Identical xrun classification in all modes
 
-### 🔧 Technische Verbesserungen v4.1
+### 🔧 Technical Improvements v4.1
 
-#### **Smart JACK-Detection-Algorithmus:**
+#### **Smart JACK Detection Algorithm:**
 ```bash
-# Multi-Prozess-Erkennung (jackd + jackdbus)
+# Multi-process detection (jackd + jackdbus)
 if pgrep -x "jackd" > /dev/null || pgrep -x "jackdbus" > /dev/null; then
-    # User-Context-Commands auch bei root-Ausführung
+    # User-context commands even during root execution
     sudo -u "$SUDO_USER" jack_bufsize 2>/dev/null
 ```
 
-#### **Konsistente Xrun-Bewertungsmatrix:**
-- **get_xrun_stats()**: JACK + PipeWire Xruns (1min)
-- **get_live_jack_xruns()**: Live PipeWire-JACK-Tunnel Erkennung (10s)
-- **get_system_xruns()**: System Audio-Probleme (5min)
+#### **Consistent Xrun Evaluation Matrix:**
+- **get_xrun_stats()**: JACK + PipeWire xruns (1min)
+- **get_live_jack_xruns()**: Live PipeWire-JACK-Tunnel detection (10s)
+- **get_system_xruns()**: System audio problems (5min)
 - **total_current_xruns = jack_xruns + pipewire_xruns + live_jack_xruns**
 
-#### **Dynamische Empfehlungslogik:**
+#### **Dynamic Recommendation Logic:**
 ```bash
-# Kontextuelle Buffer-Empfehlungen basierend auf aktuellen Settings
+# Contextual buffer recommendations based on current settings
 if [ "$total_current_xruns" -gt 20 ]; then
-    # Aggressive Empfehlungen: 256→1024, Samplerate-Reduktion
+    # Aggressive recommendations: 256→1024, sample rate reduction
 elif [ "$total_current_xruns" -gt 5 ]; then
-    # Moderate Empfehlungen: 128→512, Periods-Optimierung
+    # Moderate recommendations: 128→512, periods optimization
 else
-    # Standard-Empfehlungen: Nächst-höhere Buffer-Größe
+    # Standard recommendations: Next higher buffer size
 fi
 ```
 
-### 📊 Real-World Performance-Daten
+### 📊 Real-World Performance Data
 
-**Getestete Konfigurationen:**
-- **96kHz/128 Samples**: 1.33ms Latenz, stabil mit Pianoteq/Organteq
-- **FL Studio**: Zu aggressiv für 128 Samples, benötigt 256+ Samples
-- **Pianoteq**: ~20 Millionen IRQs/Session optimal auf CPU 18 verarbeitet
-- **IRQ-Optimierung**: 100% USB-Controller + Audio-IRQs auf CPUs 14-19
+**Tested configurations:**
+- **96kHz/128 samples**: 1.33ms latency, stable with Pianoteq/Organteq
+- **FL Studio**: Too aggressive for 128 samples, needs 256+ samples
+- **Pianoteq**: ~20 million IRQs/session optimally processed on CPU 18
+- **IRQ optimization**: 100% USB controller + audio IRQs on CPUs 14-19
 
-## 📈 Klassisches Performance-Monitoring
-
----
-
-### 💡 FAQ & Hinweise
-
-- **Muss ich prüfen, ob power-profiles-daemon läuft?**
-  - Nein, auf modernen Ubuntu/KDE-Systemen läuft der Daemon immer. Die Governor-Optimierung des Hybrid-Systems funktioniert trotzdem zuverlässig.
-- **Kann das Governor-Setzen mein System beschädigen?**
-  - Nein, solange das System nach der Audio-Session sauber zurückgesetzt wird (wie hier automatisiert), gibt es keine bleibenden Nebenwirkungen.
-- **Warum reicht EPP nicht immer?**
-  - EPP (`powerprofilesctl`) steuert nur die Energie-Präferenz, nicht die tatsächliche Taktstrategie. Für garantierte Low-Latency-Audio-Performance ist der Governor `performance` weiterhin wichtig.
-- **Kann ich das System nach einer Session wieder wie gewohnt nutzen?**
-  - Ja, nach dem Entfernen des Interfaces und dem automatischen Reset funktionieren KDE/GNOME-Energieverwaltung und `powerprofilesctl` wie gewohnt.
-- **Ist die Xrun-Erkennung so genau wie externe Tools?**
-  - Ja, das System erkennt die gleichen PipeWire-JACK-Tunnel Xruns wie Patchance/QJackCtl. Externe Monitoring-Tools sind nicht mehr nötig.
-- **Funktionieren die JACK-Settings-Empfehlungen auch als root?**
-  - Ja, das System erkennt User-JACK-Sessions auch bei root-Ausführung via sudo-User-Context-Detection.
-- **Sind die Empfehlungen in Status- und Detailansicht identisch?**
-  - Ja, beide Modi verwenden die gleiche Xrun-Bewertungslogik und liefern konsistente Empfehlungen.
-- **Kann ich zwischen verschiedenen JACK-Settings automatisch wechseln?**
-  - Ja, mit dem `motu-m4-jack-setting-system.sh` Script können Settings schnell gewechselt werden. Automatisierung basierend auf Xrun-Rate ist möglich.
+## 📈 Classic Performance Monitoring
 
 ---
 
-### CPU-Governor Status
+### 💡 FAQ & Notes
+
+- **Do I need to check if power-profiles-daemon is running?**
+  - No, on modern Ubuntu/KDE systems the daemon always runs. The Hybrid System's governor optimization works reliably regardless.
+- **Can governor setting damage my system?**
+  - No, as long as the system is cleanly reset after the audio session (as automated here), there are no lasting side effects.
+- **Why is EPP not always sufficient?**
+  - EPP (`powerprofilesctl`) only controls energy preference, not the actual clock strategy. For guaranteed low-latency audio performance, the `performance` governor remains important.
+- **Can I use my system normally after a session?**
+  - Yes, after removing the interface and automatic reset, KDE/GNOME power management and `powerprofilesctl` work as usual.
+- **Is xrun detection as accurate as external tools?**
+  - Yes, the system detects the same PipeWire-JACK-Tunnel xruns as Patchance/QJackCtl. External monitoring tools are no longer needed.
+- **Do JACK settings recommendations work as root?**
+  - Yes, the system detects user JACK sessions even during root execution via sudo user context detection.
+- **Are recommendations identical in status and detailed views?**
+  - Yes, both modes use the same xrun evaluation logic and provide consistent recommendations.
+- **Can I automatically switch between different JACK settings?**
+  - Yes, with the `motu-m4-jack-setting-system.sh` script, settings can be quickly changed. Automation based on xrun rate is possible.
+
+---
+
+### CPU Governor Status
 ```bash
 # P-Cores (0-7)
 grep -H . /sys/devices/system/cpu/cpu{0..7}/cpufreq/scaling_governor
@@ -422,140 +422,135 @@ grep -H . /sys/devices/system/cpu/cpu{0..7}/cpufreq/scaling_governor
 grep -H . /sys/devices/system/cpu/cpu{14..19}/cpufreq/scaling_governor
 ```
 
-### IRQ-Affinität prüfen
+### Check IRQ Affinity
 ```bash
-# USB-Controller IRQs
+# USB controller IRQs
 grep xhci_hcd /proc/interrupts
 cat /proc/irq/*/smp_affinity_list | grep -v "0-19"
 ```
 
-### Audio-Prozess-Affinität
+### Audio Process Affinity
 ```bash
 # JACK/PipeWire
 ps -eo pid,comm,psr | grep -E "(jackd|pipewire)"
 
-# Mit taskset prüfen
+# Check with taskset
 sudo taskset -cp $(pgrep jackd)
 ```
 
-## 🎯 Optimierungen
+## 🎯 Optimizations
 
-### GRUB-Parameter für beste Performance
+### GRUB Parameters for Best Performance
 ```bash
 # /etc/default/grub
 GRUB_CMDLINE_LINUX="isolcpus=14-19 nohz_full=14-19 rcu_nocbs=14-19 threadirqs"
 
-# Nach Änderung:
+# After changes:
 sudo update-grub
 sudo reboot
 ```
 
-### JACK-Konfiguration
+### JACK Configuration
 ```bash
-# Optimal für 1.3ms Latenz
+# Optimal for 1.3ms latency
 /usr/bin/jackd -dalsa -dhw:M4,0 -r48000 -p64 -n3
 
-# Stabil für Produktionen
+# Stable for productions
 /usr/bin/jackd -dalsa -dhw:M4,0 -r48000 -p256 -n3
 ```
 
-## 📋 Systemübersicht
+## 📋 System Overview
 
-### Installierte Dateien
+### Installed Files
 - **Script:** `/usr/local/bin/motu-m4-dynamic-optimizer.sh`
 - **Service:** `/etc/systemd/system/motu-m4-dynamic-optimizer.service`
-- **udev-Regel:** `/etc/udev/rules.d/99-motu-m4-audio-optimizer.rules`
+- **udev rule:** `/etc/udev/rules.d/99-motu-m4-audio-optimizer.rules`
 
-### CPU-Strategie
-- **P-Cores 0-5:** DAW/Plugins (Performance-Governor)
-- **P-Cores 6-7:** JACK/PipeWire (Performance-Governor)
-- **E-Cores 8-13:** Background-Tasks (Powersave-Governor)
-- **E-Cores 14-19:** IRQ-Handling (Performance-Governor)
+### CPU Strategy
+- **P-Cores 0-5:** DAW/Plugins (Performance Governor)
+- **P-Cores 6-7:** JACK/PipeWire (Performance Governor)
+- **E-Cores 8-13:** Background tasks (Powersave Governor)
+- **E-Cores 14-19:** IRQ handling (Performance Governor)
 
-### Optimierungen
-- ✅ **CPU-Governor:** Performance für Audio-relevante Kerne
-- ✅ **Process-Pinning:** Audio-Prozesse auf optimale Kerne
-- ✅ **IRQ-Affinität:** USB-Audio-IRQs auf E-Cores 14-19
-- ✅ **USB-Power:** Autosuspend deaktiviert, always-on
-- ✅ **Kernel-Parameter:** RT-Runtime unlimited, Swappiness 10
-- ✅ **Scheduler:** Latenz und Granularität optimiert
+### Optimizations
+- ✅ **CPU Governor:** Performance for audio-relevant cores
+- ✅ **Process Pinning:** Audio processes on optimal cores
+- ✅ **IRQ Affinity:** USB audio IRQs on E-Cores 14-19
+- ✅ **USB Power:** Autosuspend disabled, always-on
+- ✅ **Kernel Parameters:** RT runtime unlimited, swappiness 10
+- ✅ **Scheduler:** Latency and granularity optimized
 
-## 🎉 Ergebnis
+## 🎉 Results
 
-**Erreichte Performance:**
-- **1.33ms Round-Trip-Latenz** bei 128 Samples @ 96kHz
-- **Professional Xrun-Monitoring** mit Echtzeit-Erkennung
-- **Automatische Performance-Warnungen** und intelligente Empfehlungen
-- **0 externe Tools** nötig - komplettes Audio-Monitoring integriert
-- **Professional Studio-Grade** Audio-Performance
-- **Plug-and-Play** Usability mit kontinuierlicher Überwachung
-- **Dynamische JACK-Integration** mit kontextuellen Empfehlungen
-- **Konsistente Bewertungslogik** über alle Monitoring-Modi
-- **Root-kompatible User-JACK-Erkennung** für systemd-Services
+**Achieved Performance:**
+- **1.33ms round-trip latency** at 128 samples @ 96kHz
+- **Professional xrun monitoring** with real-time detection
+- **Automatic performance warnings** and intelligent recommendations
+- **0 external tools** needed - complete audio monitoring integrated
+- **Professional studio-grade** audio performance
+- **Plug-and-play** usability with continuous monitoring
+- **Dynamic JACK integration** with contextual recommendations
+- **Consistent evaluation logic** across all monitoring modes
+- **Root-compatible user JACK detection** for systemd services
 
-**Neue Features v4:**
-- ✅ **Live-Xrun-Monitor**: Echtzeit-Überwachung während Sessions
-- ✅ **Intelligente Warnungen**: Automatische Benachrichtigung bei >10 Xruns/30s
-- ✅ **4 Monitoring-Modi**: Monitor, Status, Detailed, Live-Xruns
-- ✅ **PipeWire-JACK-Tunnel Detection**: Präzise wie Patchance
-- ✅ **Performance-Empfehlungen**: Proaktive Buffer-/Setting-Vorschläge
-- ✅ **Session-Tracking**: Xrun-Statistiken pro Audio-Session
+**New Features v4:**
+- ✅ **Live xrun monitor**: Real-time monitoring during sessions
+- ✅ **Intelligent warnings**: Automatic notification at >10 xruns/30s
+- ✅ **4 monitoring modes**: Monitor, Status, Detailed, Live-Xruns
+- ✅ **PipeWire-JACK-Tunnel detection**: Precise like Patchance
+- ✅ **Performance recommendations**: Proactive buffer/setting suggestions
+- ✅ **Session tracking**: Xrun statistics per audio session
 
-**Neue Features v4.1 (Dynamische JACK-Integration):**
-- ✅ **Smart JACK-Detection**: Automatische Erkennung von Buffer/Samplerate/Periods
-- ✅ **Context-Aware Recommendations**: Empfehlungen basierend auf aktuellen JACK-Settings
-- ✅ **Consistent Xrun Evaluation**: Identische Bewertungslogik in allen Modi
-- ✅ **Root-User Context Detection**: JACK-Erkennung auch bei sudo-Ausführung
-- ✅ **Dynamic Buffer Matrix**: Intelligente Empfehlungen je nach Xrun-Schweregrad
-- ✅ **Live JACK Display**: Real-time Settings-Anzeige im Monitoring
+**New Features v4.1 (Dynamic JACK Integration):**
+- ✅ **Smart JACK detection**: Automatic detection of buffer/sample rate/periods
+- ✅ **Context-aware recommendations**: Recommendations based on current JACK settings
+- ✅ **Consistent xrun evaluation**: Identical evaluation logic in all modes
+- ✅ **Root user context detection**: JACK detection also during sudo execution
+- ✅ **Dynamic buffer matrix**: Intelligent recommendations based on xrun severity
+- ✅ **Live JACK display**: Real-time settings display in monitoring
 
-
-
-**Hardware-Setup:**
+**Hardware Setup:**
 - Dell Pro Max Tower T2 CTO Base
-- Intel Core Ultra 7 265K (20 Cores, 1.8-5.3 GHz)
+- Intel Core Ultra 7 265K (20 cores, 1.8-5.3 GHz)
 - 32GB DDR5-5600
-- MOTU M4 Audio-Interface
+- MOTU M4 Audio Interface
 - Linux gng 6.11.0-1024-oem #24-Ubuntu SMP PREEMPT_DYNAMIC Fri May 30 09:52:29 UTC 2025 x86_64 x86_64 x86_64 GNU/Linux
-
 
 ---
 
-## 🏆 Fazit
+## 🏆 Conclusion
 
-Dieses System bietet **Professional-Grade Audio-Performance-Monitoring** für Linux, das kommerzielle Tools übertrifft:
+This system provides **Professional-Grade Audio Performance Monitoring** for Linux that surpasses commercial tools:
 
-- **Hardware-Optimierung**: IRQ-Management, CPU-Pinning, Governor-Strategien
-- **Real-Time Monitoring**: Live-Xrun-Erkennung ohne externe Dependencies
-- **Intelligent Automation**: Plug-and-Play mit proaktiven Empfehlungen
-- **Flexible Konfiguration**: Schnelle Setting-Wechsel für verschiedene DAW-Anforderungen
-- **Dynamic JACK Integration**: Automatische Settings-Erkennung und kontextuelle Empfehlungen
-- **Consistent Evaluation**: Einheitliche Xrun-Bewertung über alle Monitoring-Modi
-- **Enterprise-Ready**: Root-kompatible User-JACK-Erkennung für systemd-Integration
+- **Hardware Optimization**: IRQ management, CPU pinning, governor strategies
+- **Real-Time Monitoring**: Live xrun detection without external dependencies
+- **Intelligent Automation**: Plug-and-play with proactive recommendations
+- **Flexible Configuration**: Quick setting changes for different DAW requirements
+- **Dynamic JACK Integration**: Automatic settings detection and contextual recommendations
+- **Consistent Evaluation**: Unified xrun assessment across all monitoring modes
+- **Enterprise-Ready**: Root-compatible user JACK detection for systemd integration
 
-## 🎯 Zusammenfassung v4.1 Improvements
+## 🎯 Summary of v4.1 Improvements
 
-Die **v4.1 Dynamische JACK-Integration** bringt das System auf **Enterprise-Level**:
+The **v4.1 Dynamic JACK Integration** brings the system to **Enterprise Level**:
 
-### ✅ **Erreichte Verbesserungen:**
-- **🎛️ Smart JACK-Detection**: Automatische Erkennung aller JACK-Parameter (Buffer/Samplerate/Periods)
-- **🔄 Konsistente Bewertung**: Identische Xrun-Klassifizierung in Status- und Detailansicht
-- **🚀 Root-Kompatibilität**: User-JACK-Erkennung funktioniert auch bei sudo/systemd-Ausführung
-- **💡 Kontextuelle Empfehlungen**: Spezifische Vorschläge basierend auf aktuellen Settings
-- **📊 Live-JACK-Display**: Real-time Settings-Anzeige im Monitoring
-- **🎯 Dynamische Buffer-Matrix**: Intelligente Empfehlungen je nach Xrun-Schweregrad
+### ✅ **Achieved Improvements:**
+- **🎛️ Smart JACK Detection**: Automatic detection of all JACK parameters (buffer/sample rate/periods)
+- **🔄 Consistent Evaluation**: Identical xrun classification in status and detail views
+- **🚀 Root Compatibility**: User JACK detection works even with sudo/systemd execution
+- **💡 Contextual Recommendations**: Specific suggestions based on current settings
+- **📊 Live JACK Display**: Real-time settings display in monitoring
+- **🎯 Dynamic Buffer Matrix**: Intelligent recommendations based on xrun severity
 
-### 🎵 **Praktischer Nutzen:**
-- **Keine Inkonsistenzen** mehr zwischen verschiedenen Monitoring-Modi
-- **Präzise Empfehlungen** statt generischer "Buffer erhöhen" Vorschläge
-- **Systemd-Integration** mit vollständiger JACK-Transparenz
-- **Professional Workflow** mit kontextueller Audio-Performance-Beratung
+### 🎵 **Practical Benefits:**
+- **No inconsistencies** between different monitoring modes
+- **Precise recommendations** instead of generic "increase buffer" suggestions
+- **Systemd integration** with full JACK transparency
+- **Professional workflow** with contextual audio performance consulting
 
-### 🏆 **Qualitätslevel:**
-Das System erreicht jetzt **Studio-Professional-Grade** mit Funktionen, die kommerzielle Audio-Monitoring-Tools übertreffen:
-- Automatische Hardware-Erkennung ✅
-- Intelligente Performance-Analyse ✅  
-- Kontextuelle Empfehlungsengine ✅
-- Enterprise-Ready systemd-Integration ✅
-
-**Mission accomplished - Professional Audio unter Linux! 🎵🚀**
+### 🏆 **Quality Level:**
+The system now achieves **Studio-Professional-Grade** with features that surpass commercial audio monitoring tools:
+- Automatic hardware detection ✅
+- Intelligent performance analysis ✅  
+- Contextual recommendation engine ✅
+- Enterprise-ready systemd integration ✅
