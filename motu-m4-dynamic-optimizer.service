@@ -1,0 +1,25 @@
+[Unit]
+Description=MOTU M4 Dynamic Audio Optimizer (On-Demand)
+Documentation=man:systemd.service(5)
+After=sound.target multi-user.target
+Wants=sound.target
+# On-demand service - started/stopped by udev rules
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/motu-m4-dynamic-optimizer.sh once
+ExecStop=/usr/local/bin/motu-m4-dynamic-optimizer.sh stop
+RemainAfterExit=yes
+User=root
+StandardOutput=journal
+StandardError=journal
+
+# Umgebungsvariablen
+Environment="PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+
+# Service läuft nur on-demand, kein automatischer Restart
+# Restart=no (default)
+
+[Install]
+# Nicht automatisch starten - wird von udev gestartet
+# WantedBy=multi-user.target

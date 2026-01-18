@@ -1,0 +1,12 @@
+# Debug-Version für MOTU M4
+SUBSYSTEM=="sound", ACTION=="add", \
+    RUN+="/bin/logger 'Sound-Add-Event: %k'"
+
+SUBSYSTEM=="sound", KERNEL=="controlC*", ACTION=="add", \
+    RUN+="/bin/logger 'ControlC-Event: %k'", \
+    RUN+="/bin/sleep 0.5", \
+    RUN+="/bin/sh -c 'if ls /proc/asound/*/id 2>/dev/null | xargs cat | grep -q M4; then logger \"MOTU M4 erkannt - Service starten (delayed)\"; systemctl --no-block start motu-m4-dynamic-optimizer-delayed.service; fi'"
+
+SUBSYSTEM=="sound", KERNEL=="card*", ACTION=="remove", \
+    RUN+="/bin/logger 'Sound-Remove: Service stoppen'", \
+    RUN+="/bin/systemctl --no-block stop motu-m4-dynamic-optimizer.service"
