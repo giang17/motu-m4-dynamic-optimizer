@@ -164,7 +164,8 @@ do_install() {
 # MOTU M4 Dynamic Optimizer v4 - Hybrid Strategy (Stability-optimized)
 # Installed wrapper script
 
-set -e
+# Note: Do NOT use "set -e" here - many operations may fail non-critically
+# (e.g., IRQ threading not supported, some kernel params not available)
 
 # Use installed library location
 SCRIPT_DIR="/usr/local/lib/motu-m4-dynamic-optimizer"

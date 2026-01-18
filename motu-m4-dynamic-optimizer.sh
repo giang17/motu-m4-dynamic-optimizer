@@ -15,7 +15,8 @@
 #   live-xruns  - Live xrun monitoring (real-time)
 #   stop        - Deactivate optimizations
 
-set -e
+# Note: Do NOT use "set -e" here - many operations may fail non-critically
+# (e.g., IRQ threading not supported, some kernel params not available)
 
 # ============================================================================
 # SCRIPT INITIALIZATION

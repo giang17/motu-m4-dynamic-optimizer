@@ -20,9 +20,9 @@ check_cpu_isolation() {
         kernel_isolation=$(grep -o "isolcpus=[0-9,-]*" /proc/cmdline | cut -d= -f2)
     fi
 
-    log_message "📊 CPU-Isolation Status:"
-    log_message "  Sys-Isolation: '$isolated_cpus'"
-    log_message "  Kernel-Param: '$kernel_isolation'"
+    log_silent "📊 CPU-Isolation Status:"
+    log_silent "  Sys-Isolation: '$isolated_cpus'"
+    log_silent "  Kernel-Param: '$kernel_isolation'"
 
     echo "$isolated_cpus|$kernel_isolation"
 }

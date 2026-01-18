@@ -31,7 +31,11 @@ show_status() {
     # CPU isolation check
     local isolation_info
     isolation_info=$(check_cpu_isolation)
-    echo "🔒 CPU-Isolation: $isolation_info"
+    local sys_isolation=$(echo "$isolation_info" | cut -d'|' -f1)
+    local kernel_isolation=$(echo "$isolation_info" | cut -d'|' -f2)
+    echo "🔒 CPU-Isolation:"
+    echo "   Sys-Isolation: '$sys_isolation'"
+    echo "   Kernel-Param: '$kernel_isolation'"
     echo ""
 
     # CPU Governor status
