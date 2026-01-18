@@ -14,12 +14,12 @@ User=root
 StandardOutput=journal
 StandardError=journal
 
-# Umgebungsvariablen
+# Environment variables
 Environment="PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 
-# Service läuft nur on-demand, kein automatischer Restart
+# Service runs only on-demand, no automatic restart
 # Restart=no (default)
 
 [Install]
-# Nicht automatisch starten - wird von udev gestartet
+# Do not start automatically - started by udev
 # WantedBy=multi-user.target

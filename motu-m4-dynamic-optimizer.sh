@@ -1,58 +1,58 @@
 #!/bin/bash
 
-# MOTU M4 Dynamic Optimizer v4 - Hybrid-Strategie (Stabilität-optimiert)
-# P-Cores auf Performance, Background E-Cores auf Powersave, IRQ E-Cores auf Performance
+# MOTU M4 Dynamic Optimizer v4 - Hybrid Strategy (Stability-optimized)
+# P-Cores on Performance, Background E-Cores on Powersave, IRQ E-Cores on Performance
 
 LOG_FILE="/var/log/motu-m4-optimizer.log"
 STATE_FILE="/var/run/motu-m4-state"
 
-# CPU-Zuweisungen für Process-Pinning (bleibt bestehen)
-IRQ_CPUS="14-19"        # E-Cores für IRQ-Handling (stabile Latenz)
-AUDIO_MAIN_CPUS="6-7"   # P-Cores für JACK/PipeWire Hauptprozesse
-DAW_CPUS="0-5"          # P-Cores für DAW/Plugins (maximale Performance)
-BACKGROUND_CPUS="8-13"  # E-Cores für Audio-Background-Tasks
+# CPU assignments for process pinning (remains unchanged)
+IRQ_CPUS="14-19"        # E-Cores for IRQ handling (stable latency)
+AUDIO_MAIN_CPUS="6-7"   # P-Cores for JACK/PipeWire main processes
+DAW_CPUS="0-5"          # P-Cores for DAW/Plugins (maximum performance)
+BACKGROUND_CPUS="8-13"  # E-Cores for audio background tasks
 
 DEFAULT_GOVERNOR="powersave"
 
-# Vereinheitlichte Audio-Prozess-Liste für alle Optimierungen
-# Diese zentrale Liste wird von allen Audio-Optimierungsfunktionen verwendet:
-# - optimize_audio_process_affinity() für CPU-Pinning und RT-Prioritäten
-# - reset_audio_process_affinity() für das Zurücksetzen der Optimierungen
-# - Status-Monitoring für die Prozessübersicht
+# Unified audio process list for all optimizations
+# This central list is used by all audio optimization functions:
+# - optimize_audio_process_affinity() for CPU pinning and RT priorities
+# - reset_audio_process_affinity() for resetting optimizations
+# - Status-Monitoring for process overview
 AUDIO_PROCESSES=(
-    # Audio-Engines und -Services (werden separat auf AUDIO_MAIN_CPUS behandelt)
+    # Audio engines and services (handled separately on AUDIO_MAIN_CPUS)
     "jackd" "pipewire" "pipewire-pulse"
 
-    # DAWs und Haupt-Audio-Software (DAW_CPUS + RT-Priorität 70)
+    # DAWs and main audio software (DAW_CPUS + RT priority 70)
     "bitwig-studio" "reaper" "ardour" "studio" "cubase"
     "qtractor" "rosegarden" "renoise" "FL64.exe" "EZmix 3.exe"
 
-    # Synthesizer und Klangerzeuger (DAW_CPUS + RT-Priorität 70)
+    # Synthesizers and sound generators (DAW_CPUS + RT priority 70)
     "yoshimi" "pianoteq" "organteq" "grandorgue" "aeolus"
     "zynaddsubfx" "qsynth" "fluidsynth" "bristol" "M1.exe" "ARP 2600" "Polisix.exe" "EP-1.exe" "VOX Super Conti"
     "legacycell.exe" "wavestate nativ" "WAVESTATION.exe" "opsix_native.ex" "modwave native." "ARP ODYSSEY"
     "TRITON.exe" "TRITON_Extreme." "EZkeys 2.exe" "EZbass.exe"
     "AAS Player.exe" "Lounge Lizard S"
 
-    # Drums und Percussion (DAW_CPUS + RT-Priorität 70)
+    # Drums and percussion (DAW_CPUS + RT priority 70)
     "hydrogen" "drumgizmo" "EZdrummer 3.exe"
 
-    # Plugin-Hosts und Audio-Tools (DAW_CPUS + RT-Priorität 70)
+    # Plugin hosts and audio tools (DAW_CPUS + RT priority 70)
     "carla" "jalv" "lv2host" "lv2rack" "jack-rack"
     "calf" "guitarix" "rakarrack" "klangfalter"
 
-    # Audio-Editoren (DAW_CPUS + RT-Priorität 70)
+    # Audio editors (DAW_CPUS + RT priority 70)
     "musescore"
 )
 
-# Ermittle aktuelle JACK-Settings
+# Get current JACK settings
 get_jack_settings() {
     local bufsize="unknown"
     local samplerate="unknown"
     local nperiods="unknown"
-    local jack_status="❌ Nicht aktiv"
+    local jack_status="❌ Not active"
 
-    # Ermittle den ursprünglichen User, falls Script als root via sudo läuft
+    # Determine the original user if script runs as root via sudo
     local original_user=""
     if [ "$EUID" -eq 0 ] && [ -n "$SUDO_USER" ]; then
         original_user="$SUDO_USER"
@@ -60,33 +60,33 @@ get_jack_settings() {
         original_user="$(whoami)"
     fi
 
-    # Prüfe ob JACK läuft UND M4 verfügbar ist
+    # Check if JACK is running AND M4 is available
     if pgrep -x "jackd" > /dev/null 2>&1 || pgrep -x "jackdbus" > /dev/null 2>&1; then
-        # JACK-Prozess läuft, aber prüfe auch M4-Verfügbarkeit
+        # JACK process running, but also check M4 availability
         local motu_available="false"
         if ls /proc/asound/*/id 2>/dev/null | xargs cat 2>/dev/null | grep -q M4; then
             motu_available="true"
         fi
 
         if [ "$motu_available" = "true" ]; then
-            jack_status="✅ Aktiv"
+            jack_status="✅ Active"
         else
-            jack_status="⚠️ Läuft (M4 nicht verfügbar)"
+            jack_status="⚠️ Running (M4 not available)"
         fi
 
-        # Funktion zum Ausführen von JACK-Commands im User-Kontext
+        # Function to execute JACK commands in user context
         run_jack_command() {
             local cmd="$1"
             if [ -n "$original_user" ] && [ "$EUID" -eq 0 ]; then
-                # Als root: Verwende sudo -u um im User-Kontext zu laufen
+                # As root: Use sudo -u to run in user context
                 sudo -u "$original_user" "$cmd" 2>/dev/null || echo "unknown"
             else
-                # Als normaler User: Direkt ausführen
+                # As normal user: Execute directly
                 "$cmd" 2>/dev/null || echo "unknown"
             fi
         }
 
-        # Versuche JACK-Parameter zu ermitteln
+        # Try to determine JACK parameters
         if command -v jack_bufsize &> /dev/null; then
             bufsize=$(run_jack_command "jack_bufsize")
         fi
@@ -96,7 +96,7 @@ get_jack_settings() {
         fi
 
         if command -v jack_control &> /dev/null; then
-            # Extrahiere nperiods-Wert aus der Form "uint:set:2:3" - nehme den letzten Wert
+            # Extract nperiods value from format "uint:set:2:3" - take the last value
             if [ -n "$original_user" ] && [ "$EUID" -eq 0 ]; then
                 nperiods=$(sudo -u "$original_user" jack_control dp 2>/dev/null | grep nperiods | awk -F':' '{print $NF}' | tr -d ')' || echo "unknown")
             else
@@ -104,10 +104,10 @@ get_jack_settings() {
             fi
         fi
 
-        # Fallback: Falls alle JACK-Commands fehlschlagen, aber Prozess läuft
+        # Fallback: If all JACK commands fail, but process runs
         if [ "$bufsize" = "unknown" ] && [ "$samplerate" = "unknown" ] && [ -n "$original_user" ]; then
-            if [ "$jack_status" = "✅ Aktiv" ]; then
-                jack_status="⚠️ Aktiv (User-Session)"
+            if [ "$jack_status" = "✅ Active" ]; then
+                jack_status="⚠️ Active (user session)"
             fi
         fi
     fi
@@ -115,114 +115,114 @@ get_jack_settings() {
     echo "$jack_status|$bufsize|$samplerate|$nperiods"
 }
 
-# Generiere dynamische Xrun-Empfehlungen basierend auf aktuellen JACK-Settings
+# Generate dynamic xrun recommendations based on current JACK settings
 get_dynamic_xrun_recommendations() {
     local current_xruns=$1
     local severity=$2  # "perfect", "mild", "severe"
 
-    # Ermittle aktuelle JACK-Settings
+    # Get current JACK settings
     local jack_info=$(get_jack_settings)
     local jack_status=$(echo "$jack_info" | cut -d'|' -f1)
     local bufsize=$(echo "$jack_info" | cut -d'|' -f2)
     local samplerate=$(echo "$jack_info" | cut -d'|' -f3)
     local nperiods=$(echo "$jack_info" | cut -d'|' -f4)
 
-    # Formatiere aktuelle Settings für Anzeige
+    # Format current settings for display
     local settings_info=""
-    if [ "$jack_status" = "✅ Aktiv" ]; then
+    if [ "$jack_status" = "✅ Active" ]; then
         settings_info="Aktuell: ${bufsize}@${samplerate}Hz"
         if [ "$nperiods" != "unknown" ]; then
             settings_info="$settings_info, $nperiods periods"
         fi
     else
-        settings_info="JACK nicht aktiv"
+        settings_info="JACK not active"
     fi
 
     case "$severity" in
         "perfect")
-            echo "   🎉 Perfekte Audio-Performance - Keine Xruns!"
-            echo "   💡 $settings_info läuft optimal stabil"
+            echo "   🎉 Perfect audio performance - No xruns!"
+            echo "   💡 $settings_info running optimally stable"
             ;;
         "mild")
-            echo "   🟡 Gelegentliche Audio-Probleme - Noch im akzeptablen Bereich"
-            if [ "$jack_status" = "✅ Aktiv" ] && [ "$bufsize" != "unknown" ]; then
-                # Dynamische Empfehlung basierend auf aktuellem Buffer
+            echo "   🟡 Occasional audio problems - Still within acceptable range"
+            if [ "$jack_status" = "✅ Active" ] && [ "$bufsize" != "unknown" ]; then
+                # Dynamische Empfehlung basierend to aktuellem Buffer
                 if [ "$bufsize" -le 128 ]; then
-                    echo "   💡 Bei häufigeren Problemen: Buffer von $bufsize auf 256 Samples erhöhen"
+                    echo "   💡 For frequent problems: Increase buffer from $bufsize to 256 samples"
                 elif [ "$bufsize" -le 256 ]; then
-                    echo "   💡 Bei häufigeren Problemen: Buffer von $bufsize auf 512 Samples erhöhen"
+                    echo "   💡 For frequent problems: Increase buffer from $bufsize to 512 samples"
                 else
-                    echo "   💡 Buffer bereits hoch ($bufsize) - prüfen Sie CPU-Last oder Samplerate"
+                    echo "   💡 Buffer already high ($bufsize) - check CPU load or sample rate"
                 fi
 
                 # Periods-Empfehlung
                 if [ "$nperiods" != "unknown" ] && [ "$nperiods" -eq 2 ]; then
-                    echo "   💡 Erwägen Sie 3 periods statt $nperiods für mehr Stabilität"
+                    echo "   💡 Consider using 3 periods instead of $nperiods for more stability"
                 fi
             else
-                echo "   💡 $settings_info - Starten Sie JACK für spezifische Empfehlungen"
+                echo "   💡 $settings_info - Start JACK for specific recommendations"
             fi
             ;;
         "severe")
-            echo "   🔴 Häufige Audio-Probleme erkannt ($current_xruns Xruns)"
-            if [ "$jack_status" = "✅ Aktiv" ] && [ "$bufsize" != "unknown" ]; then
+            echo "   🔴 Frequent audio problems detected ($current_xruns Xruns)"
+            if [ "$jack_status" = "✅ Active" ] && [ "$bufsize" != "unknown" ]; then
                 # Aggressivere Empfehlungen bei schweren Problemen
                 if [ "$bufsize" -le 64 ]; then
-                    echo "   💡 Sofort-Maßnahme: Buffer von $bufsize auf 256+ Samples erhöhen"
+                    echo "   💡 Immediate action: Increase buffer from $bufsize to 256+ samples"
                 elif [ "$bufsize" -le 128 ]; then
-                    echo "   💡 Empfehlung: Buffer von $bufsize auf 512 Samples erhöhen"
+                    echo "   💡 Recommendation: Increase buffer from $bufsize to 512 samples"
                 elif [ "$bufsize" -le 256 ]; then
-                    echo "   💡 Buffer von $bufsize auf 1024 Samples oder höher erhöhen"
+                    echo "   💡 Increase buffer from $bufsize to 1024 Samples or higher"
                 else
-                    echo "   💡 Buffer bereits sehr hoch ($bufsize) - System-Optimierung nötig"
+                    echo "   💡 Buffer already very high ($bufsize) - system optimization needed"
                 fi
 
                 # Samplerate-Empfehlung
                 if [ "$samplerate" != "unknown" ] && [ "$samplerate" -gt 48000 ]; then
-                    echo "   💡 Oder Samplerate von ${samplerate}Hz auf 48kHz reduzieren für mehr Stabilität"
+                    echo "   💡 Or reduce sample rate from ${samplerate}Hz to 48kHz reduzieren for more stability"
                 fi
 
                 # Periods-Empfehlung
                 if [ "$nperiods" != "unknown" ] && [ "$nperiods" -eq 2 ]; then
-                    echo "   💡 Wichtig: 3 periods statt $nperiods verwenden für bessere Latenz-Toleranz"
+                    echo "   💡 Important: Use 3 periods instead of $nperiods for better latency tolerance"
                 fi
             else
-                echo "   💡 $settings_info - Starten Sie JACK für detaillierte Empfehlungen"
-                echo "   💡 Generell: Höhere Buffer-Größen (256+ Samples) oder niedrigere Samplerate"
+                echo "   💡 $settings_info - Start JACK for detailed recommendations"
+                echo "   💡 Generally: Higher buffer sizes (256+ samples) or lower sample rate"
             fi
             ;;
     esac
 }
 
-# Logging-Funktion mit Fallback für normale User
+# Logging-Funktion mit Fallback for normal users
 log_message() {
     local message="$(date '+%Y-%m-%d %H:%M:%S') - $1"
 
-    # Versuche in System-Log zu schreiben
+    # Try to write to system log
     if echo "$message" >> "$LOG_FILE" 2>/dev/null; then
         echo "$message"
     else
-        # Fallback für normale User
+        # Fallback for normal users
         local user_log="$HOME/.local/share/motu-m4-optimizer.log"
         mkdir -p "$(dirname "$user_log")" 2>/dev/null
         echo "$message" | tee -a "$user_log"
 
-        # Einmalige Warnung über Log-Location
+        # One-time warning about log location
         if [ ! -f "$HOME/.local/share/.motu-log-warning-shown" ]; then
-            echo "ℹ️  Log wird gespeichert in: $user_log"
+            echo "ℹ️  Log is saved to: $user_log"
             touch "$HOME/.local/share/.motu-log-warning-shown" 2>/dev/null
         fi
     fi
 }
 
-# Prüfe ob CPUs isoliert sind
+# Check if CPUs are isolated
 check_cpu_isolation() {
     local isolated_cpus=""
     if [ -e "/sys/devices/system/cpu/isolated" ]; then
         isolated_cpus=$(cat /sys/devices/system/cpu/isolated)
     fi
 
-    # Prüfe auch Kernel-Boot-Parameter
+    # Also check kernel boot parameters
     local kernel_isolation=""
     if grep -q "isolcpus=" /proc/cmdline; then
         kernel_isolation=$(grep -o "isolcpus=[0-9,-]*" /proc/cmdline | cut -d= -f2)
@@ -235,11 +235,11 @@ check_cpu_isolation() {
     echo "$isolated_cpus|$kernel_isolation"
 }
 
-# Prüfe ob MOTU M4 angeschlossen ist
+# Check if MOTU M4 is connected
 check_motu_m4() {
     local motu_found=false
 
-    # Prüfe ALSA-Karten
+    # Check ALSA cards
     for card in /proc/asound/card*; do
         if [ -e "$card/id" ]; then
             card_id=$(cat "$card/id" 2>/dev/null)
@@ -250,7 +250,7 @@ check_motu_m4() {
         fi
     done
 
-    # Zusätzliche USB-Prüfung
+    # Additional USB check
     if ! $motu_found; then
         if lsusb | grep -q "Mark of the Unicorn"; then
             motu_found=true
@@ -267,11 +267,11 @@ get_xrun_stats() {
     local jack_messages=0
     local total_xruns=0
 
-    # Echte JACK Xrun-Erkennung mit jack_test (falls JACK läuft)
+    # Real JACK xrun detection with jack_test (if JACK is running)
     if pgrep -x "jackd\|jackdbus" > /dev/null 2>&1; then
-        # Methode 1: jack_test für echte Xrun-Statistiken
+        # Methode 1: jack_test for real xrun statistics
         if command -v jack_test &> /dev/null; then
-            # jack_test -t 5 läuft 5 Sekunden und meldet Xruns
+            # jack_test -t 5 runs 5 seconds and reports xruns
             jack_test_output=$(timeout 7 jack_test -t 5 2>&1 || echo "timeout")
             jack_xruns=$(echo "$jack_test_output" | grep -i "xrun\|late\|early" | wc -l || echo "0")
 
@@ -282,7 +282,7 @@ get_xrun_stats() {
             fi
         fi
 
-        # Methode 2: jack_simple_client für Live-Test (nur bei 0 Xruns)
+        # Methode 2: jack_simple_client for live test (only at 0 xruns)
         if command -v jack_simple_client &> /dev/null && [ "$jack_xruns" -eq 0 ]; then
             # Kurzer Test-Client um Xruns zu provozieren/erkennen
             jack_client_test=$(timeout 3 jack_simple_client 2>&1 | grep -i "xrun\|buffer\|late" | wc -l || echo "0")
@@ -295,16 +295,16 @@ get_xrun_stats() {
             jack_xruns=$((jack_xruns + jack_log_xruns))
         fi
 
-        # Methode 4: QJackCtl-spezifische Xrun-Erkennung
+        # Methode 4: QJackCtl-specific xrun detection
         if pgrep -x "qjackctl" > /dev/null 2>&1; then
             qjackctl_logs=$(journalctl --since "1 minute ago" --no-pager -q 2>/dev/null | grep -i "qjackctl.*xrun.*count\|jack.*xrun.*detected" | wc -l || echo "0")
             jack_xruns=$((jack_xruns + qjackctl_logs))
         fi
     fi
 
-    # PipeWire Xrun-Erkennung über JACK-Tunnel-Logs (erweitert)
+    # PipeWire xrun detection via JACK tunnel logs (extended)
     if pgrep -x "pipewire" > /dev/null 2>&1; then
-        # PipeWire-JACK-Tunnel Xruns (spezifisch für dein Setup)
+        # PipeWire-JACK-Tunnel Xruns (specific for your setup)
         if command -v journalctl &> /dev/null; then
             # Suche nach "mod.jack-tunnel: Xrun" Nachrichten der letzten 2 Minuten
             pipewire_xruns=$(journalctl --since "2 minutes ago" --no-pager -q 2>/dev/null | grep -i "mod\.jack-tunnel.*xrun\|pipewire.*xrun\|pipewire.*drop\|pipewire.*underrun" | wc -l || echo "0")
@@ -322,18 +322,18 @@ get_live_jack_xruns() {
     local xrun_count=0
     local pipewire_xruns=0
 
-    # Priorität: PipeWire-JACK-Tunnel Xruns (da diese bei dir funktionieren)
+    # Priorität: PipeWire-JACK-Tunnel Xruns (as these work for you)
     if pgrep -x "pipewire" > /dev/null 2>&1; then
-        # PipeWire-JACK-Tunnel Xruns der letzten 10 Sekunden (Live-Erkennung)
+        # PipeWire-JACK-Tunnel xruns of last 10 seconds (live detection)
         if command -v journalctl &> /dev/null; then
             pipewire_xruns=$(journalctl --since "10 seconds ago" --no-pager -q 2>/dev/null | grep -i "mod\.jack-tunnel.*xrun" | wc -l || echo "0")
             xrun_count=$((xrun_count + pipewire_xruns))
         fi
     fi
 
-    # JACK direkte Xruns (falls JACK läuft)
+    # JACK direkte Xruns (if JACK is running)
     if pgrep -x "jackd\|jackdbus" > /dev/null 2>&1; then
-        # JACK-Server-Messages der letzten 15 Sekunden
+        # JACK server messages of last 15 seconds
         if command -v journalctl &> /dev/null; then
             jack_recent=$(journalctl --since "15 seconds ago" --no-pager -q 2>/dev/null | grep -iE "jack.*(xrun|buffer.*late|delay.*exceeded|timeout)" | wc -l || echo "0")
             xrun_count=$((xrun_count + jack_recent))
@@ -367,7 +367,7 @@ get_system_xruns() {
         severe_xruns=$(journalctl --since "5 minutes ago" 2>/dev/null | grep -iE "(usb|audio).*(error|fail|disconnect|reset)" | wc -l || echo "0")
     fi
 
-    # Dmesg für USB-Audio-Probleme (mit sudo fallback)
+    # Dmesg for USB audio problems (with sudo fallback)
     if command -v dmesg &> /dev/null; then
         usb_audio_errors=$(dmesg 2>/dev/null | tail -100 | grep -iE "(usb|audio).*(error|xrun|underrun)" | wc -l 2>/dev/null || echo "0")
         if [ "$usb_audio_errors" = "0" ] && [ "$EUID" -eq 0 ]; then
@@ -379,34 +379,34 @@ get_system_xruns() {
     echo "recent:$recent_xruns|severe:$severe_xruns|jack_msg:$jack_messages"
 }
 
-# Audio-Prozess-Affinität auf optimale P-Cores setzen
+# Set audio process affinity to optimal P-Cores
 optimize_audio_process_affinity() {
-    log_message "🎯 Setze Audio-Prozess-Affinität auf optimale P-Cores..."
+    log_message "🎯 Set audio process affinity to optimal P-Cores..."
 
-    # JACK-Prozesse auf dedizierte P-Cores (6-7)
+    # JACK-Prozesse to dedizierte P-Cores (6-7)
     for pid in $(ps -eo pid,comm | grep -E "^[[:space:]]*[0-9]+[[:space:]]+jackd" | awk '{print $1}'); do
         if command -v taskset &> /dev/null; then
             taskset -cp $AUDIO_MAIN_CPUS $pid 2>/dev/null
             if [ $? -eq 0 ]; then
-                log_message "  JACK Prozess $pid auf P-Cores $AUDIO_MAIN_CPUS gepinnt"
+                log_message "  JACK Prozess $pid to P-Cores $AUDIO_MAIN_CPUS gepinnt"
             fi
         fi
 
-        # Höchste Echtzeit-Priorität für JACK
+        # Highest real-time priority for JACK
         if command -v chrt &> /dev/null; then
             chrt -f -p 99 $pid 2>/dev/null
             if [ $? -eq 0 ]; then
-                log_message "  JACK Prozess $pid auf Echtzeit-Priorität 99 gesetzt"
+                log_message "  JACK process $pid set to real-time priority 99"
             fi
         fi
     done
 
-    # PipeWire-Prozesse auf P-Cores
+    # PipeWire-Prozesse to P-Cores
     for pid in $(ps -eo pid,comm | grep -E "pipewire$" | awk '{print $1}'); do
         if command -v taskset &> /dev/null; then
             taskset -cp $AUDIO_MAIN_CPUS $pid 2>/dev/null
             if [ $? -eq 0 ]; then
-                log_message "  PipeWire Prozess $pid auf P-Cores $AUDIO_MAIN_CPUS gepinnt"
+                log_message "  PipeWire Prozess $pid to P-Cores $AUDIO_MAIN_CPUS gepinnt"
             fi
         fi
         if command -v chrt &> /dev/null; then
@@ -414,12 +414,12 @@ optimize_audio_process_affinity() {
         fi
     done
 
-    # PipeWire-Pulse auf P-Cores
+    # PipeWire-Pulse to P-Cores
     for pid in $(ps -eo pid,comm | grep -E "pipewire-pulse" | awk '{print $1}'); do
         if command -v taskset &> /dev/null; then
             taskset -cp $AUDIO_MAIN_CPUS $pid 2>/dev/null
             if [ $? -eq 0 ]; then
-                log_message "  PipeWire-Pulse Prozess $pid auf P-Cores $AUDIO_MAIN_CPUS gepinnt"
+                log_message "  PipeWire-Pulse Prozess $pid to P-Cores $AUDIO_MAIN_CPUS gepinnt"
             fi
         fi
         if command -v chrt &> /dev/null; then
@@ -429,23 +429,23 @@ optimize_audio_process_affinity() {
 
     # Vereinheitlichte Audio-Prozess-Optimierung
     # Behandelt alle DAWs, Synthesizer, Plugin-Hosts und Audio-Tools einheitlich
-    # JACK/PipeWire werden separat auf AUDIO_MAIN_CPUS (6-7) behandelt
+    # JACK/PipeWire werden separat to AUDIO_MAIN_CPUS (6-7) handled
     for audio_app in "${AUDIO_PROCESSES[@]}"; do
-        # Skip JACK/PipeWire hier - die werden separat auf AUDIO_MAIN_CPUS behandelt
+        # Skip JACK/PipeWire hier - die werden separat to AUDIO_MAIN_CPUS handled
         if [[ "$audio_app" =~ ^(jackd|pipewire|pipewire-pulse)$ ]]; then
             continue
         fi
 
         for pid in $(ps -eo pid,comm --no-headers | awk -v pattern="^$audio_app$" 'tolower($2) ~ tolower(pattern) {print $1}'); do
-            # CPU-Affinität auf DAW P-Cores (0-5) setzen für maximale Single-Thread-Performance
+            # Set CPU affinity to DAW P-Cores (0-5) for maximum single-thread performance
             if command -v taskset &> /dev/null; then
                 taskset -cp $DAW_CPUS $pid 2>/dev/null
                 if [ $? -eq 0 ]; then
-                    log_message "  Audio-App ($audio_app) Prozess $pid auf P-Cores $DAW_CPUS gepinnt"
+                    log_message "  Audio-App ($audio_app) Prozess $pid to P-Cores $DAW_CPUS gepinnt"
                 fi
             fi
 
-            # RT-Priorität 70 für alle Audio-Software (niedrigere Priorität als JACK)
+            # RT-Priorität 70 for all audio software (lower priority than JACK)
             if command -v chrt &> /dev/null; then
                 chrt -f -p 70 $pid 2>/dev/null
             fi
@@ -453,22 +453,22 @@ optimize_audio_process_affinity() {
     done
 }
 
-# Audio-Prozess-Affinität zurücksetzen
+# Reset audio process affinity
 # Verwendet die gleiche vereinheitlichte AUDIO_PROCESSES Liste wie optimize_audio_process_affinity()
 reset_audio_process_affinity() {
-    log_message "🔄 Setze Audio-Prozess-Affinität zurück..."
+    log_message "🔄 Reset audio process affinity..."
 
-    # Alle Audio-Prozesse auf alle CPUs zurücksetzen - Verwendung der vereinheitlichten Liste
+    # Reset all audio processes to all CPUs - Using unified list
     for process in "${AUDIO_PROCESSES[@]}"; do
         for pid in $(ps -eo pid,comm --no-headers | awk -v pattern="^$process$" 'tolower($2) ~ tolower(pattern) {print $1}'); do
             if command -v taskset &> /dev/null; then
                 taskset -cp 0-19 $pid 2>/dev/null
                 if [ $? -eq 0 ]; then
-                    log_message "  Prozess $process ($pid) auf alle CPUs (0-19) zurückgesetzt"
+                    log_message "  Process $process ($pid) reset to all CPUs (0-19)"
                 fi
             fi
 
-            # Priorität zurücksetzen (normale Scheduling)
+            # Reset priority (normal scheduling)
             if command -v chrt &> /dev/null; then
                 chrt -o -p 0 $pid 2>/dev/null
             fi
@@ -476,18 +476,18 @@ reset_audio_process_affinity() {
     done
 }
 
-# Aktiviere Audio-Optimierungen - Hybrid-Strategie (Stabilität-optimiert)
+# Activate audio optimizations - Hybrid Strategy (Stability-optimized)
 activate_audio_optimizations() {
-    log_message "🎵 MOTU M4 erkannt - Aktiviere Hybrid Audio-Optimierungen..."
-    log_message "🏗️  Strategie: P-Cores(0-7) Performance, Background E-Cores(8-13) Powersave, IRQ E-Cores(14-19) Performance"
+    log_message "🎵 MOTU M4 detected - Activating hybrid audio optimizations..."
+    log_message "🏗️  Strategy: P-Cores(0-7) Performance, Background E-Cores(8-13) Powersave, IRQ E-Cores(14-19) Performance"
 
-    # P-Cores für Audio-Processing optimieren (0-7)
-    log_message "🚀 Optimiere P-Cores (0-7) für Audio-Processing..."
+    # Optimize P-Cores for audio processing (0-7)
+    log_message "🚀 Optimize P-Cores (0-7) for audio processing..."
     for cpu in {0..7}; do
         if [ -e "/sys/devices/system/cpu/cpu$cpu/cpufreq/scaling_governor" ]; then
             echo performance > "/sys/devices/system/cpu/cpu$cpu/cpufreq/scaling_governor" 2>/dev/null
             if [ $? -eq 0 ]; then
-                log_message "  P-Core CPU $cpu: Governor auf 'performance' gesetzt"
+                log_message "  P-Core CPU $cpu: Governor set to 'performance'"
             fi
         fi
 
@@ -496,44 +496,44 @@ activate_audio_optimizations() {
             max_freq=$(cat "/sys/devices/system/cpu/cpu$cpu/cpufreq/scaling_max_freq" 2>/dev/null)
             if [ -n "$max_freq" ]; then
                 echo $max_freq > "/sys/devices/system/cpu/cpu$cpu/cpufreq/scaling_min_freq" 2>/dev/null
-                log_message "  P-Core CPU $cpu: Min-Frequenz auf Maximum gesetzt"
+                log_message "  P-Core CPU $cpu: Min-Frequenz to Maximum gesetzt"
             fi
         fi
     done
 
-    # Background E-Cores auf Powersave lassen (8-13) - Reduziert Störungen
-    log_message "🔋 Lasse Background E-Cores (8-13) auf Powersave für Stabilität..."
+    # Keep background E-Cores on Powersave (8-13) - Reduces interference
+    log_message "🔋 Keep Background E-Cores (8-13) on Powersave for stability..."
     for cpu in {8..13}; do
         if [ -e "/sys/devices/system/cpu/cpu$cpu/cpufreq/scaling_governor" ]; then
             current_governor=$(cat "/sys/devices/system/cpu/cpu$cpu/cpufreq/scaling_governor")
             if [ "$current_governor" != "$DEFAULT_GOVERNOR" ]; then
                 echo "$DEFAULT_GOVERNOR" > "/sys/devices/system/cpu/cpu$cpu/cpufreq/scaling_governor" 2>/dev/null
                 if [ $? -eq 0 ]; then
-                    log_message "  Background E-Core CPU $cpu: Governor auf '$DEFAULT_GOVERNOR' gesetzt"
+                    log_message "  Background E-Core CPU $cpu: Governor set to '$DEFAULT_GOVERNOR'"
                 fi
             fi
         fi
     done
 
-    # IRQ E-Cores auf Performance optimieren (14-19)
-    log_message "⚡ Optimiere IRQ E-Cores (14-19) für stabile Latenz..."
+    # IRQ E-Cores to Performance optimieren (14-19)
+    log_message "⚡ Optimize IRQ E-Cores (14-19) for stable latency..."
     for cpu in {14..19}; do
         if [ -e "/sys/devices/system/cpu/cpu$cpu/cpufreq/scaling_governor" ]; then
             echo performance > "/sys/devices/system/cpu/cpu$cpu/cpufreq/scaling_governor" 2>/dev/null
             if [ $? -eq 0 ]; then
-                log_message "  IRQ E-Core CPU $cpu: Governor auf 'performance' gesetzt"
+                log_message "  IRQ E-Core CPU $cpu: Governor set to 'performance'"
             fi
         fi
     done
 
-    # USB-Controller IRQs auf E-Cores setzen (bewährte Strategie beibehalten)
-    log_message "🎯 USB-Controller IRQs auf E-Cores (14-19) für stabile Latenz..."
+    # Set USB controller IRQs to E-Cores (keeping proven strategy)
+    log_message "🎯 USB controller IRQs to E-Cores (14-19) for stable latency..."
     USB_IRQS=$(cat /proc/interrupts | grep "xhci_hcd" | awk '{print $1}' | tr -d ':')
     for IRQ in $USB_IRQS; do
         if [ -e "/proc/irq/$IRQ/smp_affinity_list" ]; then
             echo "$IRQ_CPUS" > "/proc/irq/$IRQ/smp_affinity_list" 2>/dev/null
             if [ $? -eq 0 ]; then
-                log_message "  USB-Controller IRQ $IRQ auf E-Cores $IRQ_CPUS gesetzt"
+                log_message "  USB controller IRQ $IRQ set to E-Cores $IRQ_CPUS"
             fi
 
             # IRQ-Optimierungen
@@ -546,18 +546,18 @@ activate_audio_optimizations() {
         fi
     done
 
-    # Fallback für bekannte IRQs
+    # Fallback for known IRQs
     for IRQ in 156 176; do
         if [ -e "/proc/irq/$IRQ/smp_affinity_list" ]; then
             echo "$IRQ_CPUS" > "/proc/irq/$IRQ/smp_affinity_list" 2>/dev/null
             if [ $? -eq 0 ]; then
-                log_message "  Fallback: IRQ $IRQ auf E-Cores $IRQ_CPUS gesetzt"
+                log_message "  Fallback: IRQ $IRQ to E-Cores $IRQ_CPUS gesetzt"
             fi
         fi
     done
 
-    # Audio-IRQs auf E-Cores setzen (für niedrigere Latenz)
-    log_message "🔊 Audio-IRQs auf E-Cores (14-19) für optimale Latenz..."
+    # Set audio IRQs to E-Cores (for lower latency)
+    log_message "🔊 Audio IRQs to E-Cores (14-19) for optimal latency..."
     AUDIO_IRQS=$(cat /proc/interrupts | grep -i "snd\|audio" | awk '{print $1}' | tr -d ':')
     for IRQ in $AUDIO_IRQS; do
         if [ -e "/proc/irq/$IRQ/smp_affinity_list" ]; then
@@ -565,7 +565,7 @@ activate_audio_optimizations() {
             if [ "$current_affinity" != "$IRQ_CPUS" ]; then
                 echo "$IRQ_CPUS" > "/proc/irq/$IRQ/smp_affinity_list" 2>/dev/null
                 if [ $? -eq 0 ]; then
-                    log_message "  Audio IRQ $IRQ auf E-Cores $IRQ_CPUS gesetzt (war: $current_affinity)"
+                    log_message "  Audio IRQ $IRQ to E-Cores $IRQ_CPUS gesetzt (war: $current_affinity)"
                 fi
             fi
 
@@ -576,7 +576,7 @@ activate_audio_optimizations() {
         fi
     done
 
-    # Audio-Prozess-Affinität auf optimale P-Cores setzen
+    # Set audio process affinity to optimal P-Cores
     optimize_audio_process_affinity
 
     # MOTU M4 USB-Optimierungen
@@ -589,27 +589,27 @@ activate_audio_optimizations() {
     optimize_advanced_audio_settings
 
     echo "optimized" > "$STATE_FILE"
-    log_message "✅ Hybrid Audio-Optimierungen aktiviert - Stabilität und Performance optimal!"
+    log_message "✅ Hybrid audio optimizations activated - Stability and performance optimal!"
 }
 
-# Deaktiviere Audio-Optimierungen - Zurück zu Standard
+# Deactivate audio optimizations - Back to standard
 deactivate_audio_optimizations() {
-    log_message "🔧 MOTU M4 nicht erkannt - Setze auf Standard-Konfiguration zurück..."
+    log_message "🔧 MOTU M4 not detected - Reset to standard configuration..."
 
-    # Audio-relevante CPUs zurücksetzen (P-Cores + IRQ E-Cores)
-    log_message "🔋 Setze Audio-relevante CPUs auf Standard-Governor..."
+    # Reset audio-relevant CPUs (P-Cores + IRQ E-Cores)
+    log_message "🔋 Reset audio-relevant CPUs to standard governor..."
     for cpu in {0..7} {14..19}; do
         if [ -e "/sys/devices/system/cpu/cpu$cpu/cpufreq/scaling_governor" ]; then
             current_governor=$(cat "/sys/devices/system/cpu/cpu$cpu/cpufreq/scaling_governor")
             if [ "$current_governor" = "performance" ]; then
                 echo "$DEFAULT_GOVERNOR" > "/sys/devices/system/cpu/cpu$cpu/cpufreq/scaling_governor" 2>/dev/null
                 if [ $? -eq 0 ]; then
-                    log_message "  CPU $cpu: Governor auf '$DEFAULT_GOVERNOR' zurückgesetzt"
+                    log_message "  CPU $cpu: Governor reset to '$DEFAULT_GOVERNOR'"
                 fi
             fi
         fi
 
-        # Min-Frequenz zurücksetzen
+        # Reset min frequency
         if [ -e "/sys/devices/system/cpu/cpu$cpu/cpufreq/scaling_min_freq" ]; then
             min_freq=$(cat "/sys/devices/system/cpu/cpu$cpu/cpufreq/cpuinfo_min_freq" 2>/dev/null)
             if [ -n "$min_freq" ]; then
@@ -618,16 +618,16 @@ deactivate_audio_optimizations() {
         fi
     done
 
-    # Prozess-Affinität zurücksetzen
+    # Reset process affinity
     reset_audio_process_affinity
 
-    # USB-Controller IRQs auf alle CPUs verteilen
+    # USB-Controller IRQs to alle CPUs verteilen
     USB_IRQS=$(cat /proc/interrupts | grep "xhci_hcd" | awk '{print $1}' | tr -d ':')
     for IRQ in $USB_IRQS; do
         if [ -e "/proc/irq/$IRQ/smp_affinity_list" ]; then
             echo "0-19" > "/proc/irq/$IRQ/smp_affinity_list" 2>/dev/null
             if [ $? -eq 0 ]; then
-                log_message "  USB-Controller IRQ $IRQ auf alle CPUs (0-19) zurückgesetzt"
+                log_message "  USB controller IRQ $IRQ reset to all CPUs (0-19)"
             fi
 
             # IRQ-Balance wieder aktivieren
@@ -637,13 +637,13 @@ deactivate_audio_optimizations() {
         fi
     done
 
-    # Audio-IRQs auf alle CPUs verteilen
+    # Audio-IRQs to alle CPUs verteilen
     AUDIO_IRQS=$(cat /proc/interrupts | grep -i "snd\|audio" | awk '{print $1}' | tr -d ':')
     for IRQ in $AUDIO_IRQS; do
         if [ -e "/proc/irq/$IRQ/smp_affinity_list" ]; then
             echo "0-19" > "/proc/irq/$IRQ/smp_affinity_list" 2>/dev/null
             if [ $? -eq 0 ]; then
-                log_message "  Audio IRQ $IRQ auf alle CPUs (0-19) zurückgesetzt"
+                log_message "  Audio IRQ $IRQ reset to all CPUs (0-19)"
             fi
 
             # IRQ-Balance wieder aktivieren
@@ -653,11 +653,11 @@ deactivate_audio_optimizations() {
         fi
     done
 
-    # Kernel-Parameter zurücksetzen
+    # Reset kernel parameters
     reset_kernel_parameters
 
     echo "standard" > "$STATE_FILE"
-    log_message "✅ Hybrid-Optimierungen deaktiviert, System auf Standard zurückgesetzt"
+    log_message "✅ Hybrid optimizations deactivated, system reset to standard"
 }
 
 # MOTU M4 USB-Optimierungen
@@ -691,9 +691,9 @@ optimize_motu_usb_settings() {
                 if [ -e "$usb_device/urbnum" ]; then
                     echo 32 > "$usb_device/urbnum" 2>/dev/null
                     if [ $? -eq 0 ]; then
-                        log_message "    URB-Anzahl auf 32 erhöht"
+                        log_message "    URB count increased to 32"
                     else
-                        log_message "    URB-Optimierung: Keine Berechtigung (normal)"
+                        log_message "    URB optimization: No permission (normal)"
                     fi
                 fi
             fi
@@ -703,7 +703,7 @@ optimize_motu_usb_settings() {
 
 # Kernel-Parameter optimieren
 optimize_kernel_parameters() {
-    log_message "⚙️  Optimiere Kernel-Parameter für Audio..."
+    log_message "⚙️  Optimize kernel parameters for audio..."
 
     # Real-Time Scheduling
     if [ -e /proc/sys/kernel/sched_rt_runtime_us ]; then
@@ -720,18 +720,18 @@ optimize_kernel_parameters() {
     # Audio-spezifische Optimierungen
     if [ -e /proc/sys/kernel/sched_latency_ns ]; then
         echo 1000000 > /proc/sys/kernel/sched_latency_ns 2>/dev/null
-        log_message "  Scheduler-Latenz: 1ms"
+        log_message "  Scheduler latency: 1ms"
     fi
 
     if [ -e /proc/sys/kernel/sched_min_granularity_ns ]; then
         echo 100000 > /proc/sys/kernel/sched_min_granularity_ns 2>/dev/null
-        log_message "  Min-Granularität: 0.1ms"
+        log_message "  Min granularity: 0.1ms"
     fi
 }
 
-# Kernel-Parameter zurücksetzen
+# Reset kernel parameters
 reset_kernel_parameters() {
-    log_message "⚙️  Setze Kernel-Parameter zurück..."
+    log_message "⚙️  Reset kernel parameters..."
 
     if [ -e /proc/sys/kernel/sched_rt_runtime_us ]; then
         echo 950000 > /proc/sys/kernel/sched_rt_runtime_us 2>/dev/null
@@ -745,18 +745,18 @@ reset_kernel_parameters() {
 
     if [ -e /proc/sys/kernel/sched_latency_ns ]; then
         echo 6000000 > /proc/sys/kernel/sched_latency_ns 2>/dev/null
-        log_message "  Scheduler-Latenz: Standard (6ms)"
+        log_message "  Scheduler latency: Standard (6ms)"
     fi
 
     if [ -e /proc/sys/kernel/sched_min_granularity_ns ]; then
         echo 750000 > /proc/sys/kernel/sched_min_granularity_ns 2>/dev/null
-        log_message "  Min-Granularität: Standard (0.75ms)"
+        log_message "  Min granularity: Standard (0.75ms)"
     fi
 }
 
 # Erweiterte Audio-Optimierungen
 optimize_advanced_audio_settings() {
-    log_message "🎼 Aktiviere erweiterte Audio-Optimierungen..."
+    log_message "🎼 Activating advanced audio optimizations..."
 
     # USB-Bulk-Transfer-Optimierungen
     if [ -e /sys/module/usbcore/parameters/usbfs_memory_mb ]; then
@@ -773,49 +773,49 @@ optimize_advanced_audio_settings() {
     # Network-Interface-Interrupts von Audio-CPUs weglenken
     for netif in /sys/class/net/*/queues/rx-*/rps_cpus; do
         if [ -e "$netif" ]; then
-            # Netzwerk-RPS auf E-Cores 8-13 beschränken
+            # Restrict network RPS to E-Cores 8-13
             echo "00003f00" > "$netif" 2>/dev/null
         fi
     done
-    log_message "  Netzwerk-Interrupts auf Background-E-Cores umgeleitet"
+    log_message "  Netzwerk-Interrupts to Background-E-Cores umgeleitet"
 }
 
 # Script-Performance optimieren
 optimize_script_performance() {
     local script_pid=$$
 
-    # Script auf Background E-Cores pinnen (8-13)
+    # Script to Background E-Cores pinnen (8-13)
     if command -v taskset &> /dev/null; then
         taskset -cp $BACKGROUND_CPUS $script_pid 2>/dev/null
         if [ $? -eq 0 ]; then
-            log_message "📌 Script selbst auf Background E-Cores $BACKGROUND_CPUS gepinnt"
+            log_message "📌 Script selbst to Background E-Cores $BACKGROUND_CPUS gepinnt"
         fi
     fi
 
-    # Niedrige Priorität für das Script
+    # Low priority for the script
     if command -v chrt &> /dev/null; then
         chrt -o -p 0 $script_pid 2>/dev/null
         if [ $? -eq 0 ]; then
-            log_message "⬇️  Script-Priorität auf niedrig gesetzt"
+            log_message "⬇️  Script priority set to low"
         fi
     fi
 
-    # I/O-Priorität reduzieren
+    # Reduce I/O priority
     if command -v ionice &> /dev/null; then
         ionice -c 3 -p $script_pid 2>/dev/null
         if [ $? -eq 0 ]; then
-            log_message "💽 Script I/O-Priorität auf Idle gesetzt"
+            log_message "💽 Script I/O priority set to idle"
         fi
     fi
 }
 
-# Detaillierte Monitoring-Funktion (erweiterte Informationen)
+# Detailed monitoring function (extended information)
 show_detailed_status() {
-    echo "=== MOTU M4 Detailliertes Monitoring ==="
+    echo "=== MOTU M4 Detailed Monitoring ==="
     echo ""
 
     # Alle MOTU M4 relevanten Informationen
-    echo "🎛️  MOTU M4 Hardware-Status:"
+    echo "🎛️  MOTU M4 hardware status:"
     MOTU_CARD=""
     for card in /proc/asound/card*; do
         if [ -e "$card/id" ]; then
@@ -857,12 +857,12 @@ show_detailed_status() {
             fi
         done
     else
-        echo "   MOTU M4 USB-Gerät nicht gefunden!"
+        echo "   MOTU M4 USB device not found!"
     fi
 
     echo ""
-    echo "⚡ Vollständige IRQ-Analyse:"
-    echo "   USB-Controller IRQs:"
+    echo "⚡ Complete IRQ analysis:"
+    echo "   USB controller IRQs:"
     cat /proc/interrupts | grep "xhci_hcd" | while read line; do
         irq=$(echo $line | awk '{print $1}' | tr -d ':')
         if [ -e "/proc/irq/$irq/smp_affinity_list" ]; then
@@ -889,15 +889,15 @@ show_detailed_status() {
     done
 
     echo ""
-    echo "🎵 Audio-Prozess-Details mit RT-Prioritäten:"
+    echo "🎵 Audio process details with RT priorities:"
     AUDIO_RT_PROCS=$(ps -eo pid,class,rtprio,ni,comm,cmd | grep -E "FF|RR" | grep -iE "pulse|pipe|jack|audio|pianoteq|organteq|reaper|ardour|bitwig|cubase|logic|ableton|fl_studio|studio|daw|yoshimi|grandorgue|renoise|carla|jalv|qtractor|rosegarden|musescore|zynaddsubfx|qsynth|fluidsynth|bristol|hydrogen|drumgizmo|guitarix|rakarrack" | grep -v "\[.*\]")
     if [ -n "$AUDIO_RT_PROCS" ]; then
-        echo "   RT-Audio-Prozesse gefunden:"
+        echo "   RT audio processes found:"
         echo "$AUDIO_RT_PROCS" | while read line; do
             echo "     $line"
         done
     else
-        echo "   Keine Audio-Prozesse mit RT-Priorität gefunden"
+        echo "   No audio processes with RT priority found"
         echo ""
         echo "   Standard Audio-Prozesse (ohne RT):"
         ps -eo pid,class,rtprio,ni,comm,cmd | grep -iE "pulse|pipe|jack|audio|pianoteq|organteq|reaper|ardour|bitwig|cubase|logic|ableton|fl_studio|studio|daw|yoshimi|grandorgue|renoise|carla|jalv|qtractor|rosegarden|musescore|zynaddsubfx|qsynth|fluidsynth|bristol|hydrogen|drumgizmo|guitarix|rakarrack" | grep -v "\[.*\]" | grep -v "grep" | head -5 | while read line; do
@@ -944,7 +944,7 @@ show_detailed_status() {
     done
 
     echo ""
-    echo "⚙️  Erweiterte Kernel-Parameter:"
+    echo "⚙️  Advanced kernel parameters:"
     echo "   RT-Scheduling:"
     if [ -e /proc/sys/kernel/sched_rt_runtime_us ]; then
         rt_runtime=$(cat /proc/sys/kernel/sched_rt_runtime_us)
@@ -986,28 +986,28 @@ show_detailed_status() {
 
     RT_AUDIO_PROCS_COUNT=$(ps -eo pid,class,rtprio,comm,cmd | grep -E "FF|RR" | grep -iE "pulse|pipe|jack|audio|pianoteq|organteq|reaper|ardour|bitwig|cubase|logic|ableton|fl_studio|studio|daw|yoshimi|grandorgue|renoise|carla|jalv|qtractor|rosegarden|musescore|zynaddsubfx|qsynth|fluidsynth|bristol|hydrogen|drumgizmo|guitarix|rakarrack" | grep -v "\[.*\]" | wc -l)
 
-    echo "   ✅ USB-Controller IRQs auf CPUs 14-19: $USB_IRQS_OPTIMIZED/$USB_IRQS_TOTAL"
-    echo "   ✅ Audio-Prozesse mit RT-Priorität: $RT_AUDIO_PROCS_COUNT"
+    echo "   ✅ USB controller IRQs on CPUs 14-19: $USB_IRQS_OPTIMIZED/$USB_IRQS_TOTAL"
+    echo "   ✅ Audio processes with RT priority: $RT_AUDIO_PROCS_COUNT"
     if [ -n "$MOTU_CARD" ]; then
-        echo "   ✅ MOTU M4 Hardware: Erkannt als $MOTU_CARD"
+        echo "   ✅ MOTU M4 hardware: Detected as $MOTU_CARD"
     else
-        echo "   ❌ MOTU M4 Hardware: Nicht erkannt"
+        echo "   ❌ MOTU M4 hardware: Not detected"
     fi
 
     echo ""
-    echo "🏁 Empfohlene nächste Schritte:"
+    echo "🏁 Recommended next steps:"
     if [ $USB_IRQS_OPTIMIZED -eq 0 ]; then
-        echo "   🔧 Führen Sie 'sudo $0 once' aus, um IRQ-Optimierungen zu aktivieren"
+        echo "   🔧 Run 'sudo $0 once' to activate IRQ optimizations"
     fi
     if [ $RT_AUDIO_PROCS_COUNT -eq 0 ]; then
-        echo "   🎵 Starten Sie Audio-Software für automatische RT-Priorität-Zuweisung"
+        echo "   🎵 Start audio software for automatic RT priority assignment"
     fi
     if [ -z "$MOTU_CARD" ]; then
-        echo "   🔌 Überprüfen Sie die MOTU M4 USB-Verbindung"
+        echo "   🔌 Check the MOTU M4 USB connection"
     fi
 
     echo ""
-    echo "🎵 Detaillierte Audio Xrun-Statistiken:"
+    echo "🎵 Detailed audio xrun statistics:"
 
     # Xrun-Statistiken sammeln
     xrun_stats=$(get_xrun_stats)
@@ -1023,7 +1023,7 @@ show_detailed_status() {
     severe_xruns=$(echo "$system_xruns" | cut -d'|' -f2 | cut -d':' -f2)
     jack_messages=$(echo "$system_xruns" | cut -d'|' -f3 | cut -d':' -f2)
 
-    # Status-Icon basierend auf Xruns
+    # Status-Icon basierend to Xruns
     xrun_icon="✅"
     if [ "$total_xruns" -gt 0 ] || [ "$recent_xruns" -gt 0 ] || [ "$live_jack_xruns" -gt 0 ]; then
         xrun_icon="⚠️"
@@ -1051,7 +1051,7 @@ show_detailed_status() {
         get_dynamic_xrun_recommendations "$total_current_xruns" "severe"
     fi
     if [ $USB_IRQS_OPTIMIZED -lt $USB_IRQS_TOTAL ] || [ $AUDIO_IRQS_OPTIMIZED -lt $AUDIO_IRQS_TOTAL ]; then
-        echo "   ⚡ Führen Sie 'sudo $0 once' aus, um alle IRQ-Optimierungen zu aktivieren"
+        echo "   ⚡ Run 'sudo $0 once' aus, um alle to activate IRQ optimizations"
     fi
 
     # Zusätzliche Empfehlungen bei anhaltenden Problemen
@@ -1076,7 +1076,7 @@ show_status() {
         current_state=$(cat "$STATE_FILE")
     fi
 
-    echo "🎛️  MOTU M4 erkannt: $motu_connected"
+    echo "🎛️  MOTU M4 detected: $motu_connected"
     echo "🔄 Aktueller Zustand: $current_state"
 
     # Aktuelle JACK-Settings anzeigen
@@ -1087,7 +1087,7 @@ show_status() {
     nperiods=$(echo "$jack_info" | cut -d'|' -f4)
 
     echo "🎵 JACK Status: $jack_status"
-    if [ "$jack_status" = "✅ Aktiv" ]; then
+    if [ "$jack_status" = "✅ Active" ]; then
         echo "   Settings: ${bufsize}@${samplerate}Hz"
         if [ "$nperiods" != "unknown" ]; then
             echo "   Periods: $nperiods"
@@ -1095,7 +1095,7 @@ show_status() {
     fi
     echo ""
 
-    # Detaillierte MOTU M4 Informationen
+    # Detailed MOTU M4 information
     echo "🎵 MOTU M4 Details:"
     MOTU_CARD=""
     for card in /proc/asound/card*; do
@@ -1116,7 +1116,7 @@ show_status() {
     done
 
     if [ -z "$MOTU_CARD" ]; then
-        echo "   MOTU M4 Karte nicht in ALSA gefunden"
+        echo "   MOTU M4 card not found in ALSA"
     fi
 
     # USB-Gerät Status
@@ -1126,7 +1126,7 @@ show_status() {
         USB_BUS=$(echo "$MOTU_USB" | awk '{print $2}')
         echo "   USB Bus: $USB_BUS"
     else
-        echo "   MOTU M4 nicht in USB-Geräten gefunden"
+        echo "   MOTU M4 not found in USB devices"
     fi
     echo ""
 
@@ -1135,11 +1135,11 @@ show_status() {
     echo "🔒 CPU-Isolation: $isolation_info"
     echo ""
 
-    echo "🖥️  CPU-Governor Status (Hybrid-Strategie):"
+    echo "🖥️  CPU Governor Status (Hybrid Strategy):"
     if [ "$current_state" = "optimized" ]; then
         echo "   🚀 P-Cores: Performance | 🔋 Background E-Cores: Powersave | ⚡ IRQ E-Cores: Performance"
     else
-        echo "   🔋 STANDARD: Alle CPUs auf $DEFAULT_GOVERNOR-Governor"
+        echo "   🔋 STANDARD: All CPUs on $DEFAULT_GOVERNOR governor"
     fi
     echo ""
 
@@ -1176,7 +1176,7 @@ show_status() {
     done
 
     echo ""
-    echo "⚡ USB-Controller IRQ-Zuweisungen:"
+    echo "⚡ USB controller IRQ assignments:"
     USB_IRQS_OPTIMIZED=0
     USB_IRQS_TOTAL=0
     cat /proc/interrupts | grep "xhci_hcd" | while read line; do
@@ -1213,9 +1213,9 @@ show_status() {
     done
 
     echo ""
-    echo "🎵 Aktive Audio-Prozesse:"
+    echo "🎵 Active audio processes:"
 
-    # Erstelle Liste aller laufenden Audio-Prozesse - Verwendet die vereinheitlichte AUDIO_PROCESSES Liste
+    # Erstelle Liste aller ltoenden Audio-Prozesse - Verwendet die vereinheitlichte AUDIO_PROCESSES Liste
     local audio_pattern=""
     for process in "${AUDIO_PROCESSES[@]}"; do
         if [ -z "$audio_pattern" ]; then
@@ -1241,7 +1241,7 @@ show_status() {
             fi
         done
     else
-        echo "   Keine Audio-Prozesse gefunden"
+        echo "   No audio processes found"
     fi
 
     echo ""
@@ -1288,7 +1288,7 @@ show_status() {
     done
 
     echo ""
-    echo "⚙️  Kernel-Parameter Status:"
+    echo "⚙️  Kernel parameter status:"
     if [ -e /proc/sys/kernel/sched_rt_runtime_us ]; then
         rt_runtime=$(cat /proc/sys/kernel/sched_rt_runtime_us)
         if [ "$rt_runtime" = "-1" ]; then
@@ -1335,9 +1335,9 @@ show_status() {
 
     RT_AUDIO_PROCS=$(ps -eo pid,class,rtprio,comm,cmd | grep -E "FF|RR" | grep -iE "pulse|pipe|jack|audio|pianoteq|organteq|reaper|ardour|bitwig|cubase|logic|ableton|fl_studio|studio|daw|yoshimi|grandorgue|renoise|carla|jalv|qtractor|rosegarden|musescore|zynaddsubfx|qsynth|fluidsynth|bristol|hydrogen|drumgizmo|guitarix|rakarrack" | grep -v "\[.*\]" | wc -l)
 
-    echo "   USB-Controller IRQs optimiert: $USB_IRQS_OPTIMIZED/$USB_IRQS_TOTAL"
-    echo "   Audio IRQs optimiert: $AUDIO_IRQS_OPTIMIZED/$AUDIO_IRQS_TOTAL"
-    echo "   Audio-Prozesse mit RT-Priorität: $RT_AUDIO_PROCS"
+    echo "   USB controller IRQs optimized: $USB_IRQS_OPTIMIZED/$USB_IRQS_TOTAL"
+    echo "   Audio IRQs optimized: $AUDIO_IRQS_OPTIMIZED/$AUDIO_IRQS_TOTAL"
+    echo "   Audio processes with RT priority: $RT_AUDIO_PROCS"
 
     # Vollständige Xrun-Status für konsistente Bewertung (wie in detaillierter Ansicht)
     xrun_stats=$(get_xrun_stats)
@@ -1361,7 +1361,7 @@ show_status() {
     nperiods=$(echo "$jack_info" | cut -d'|' -f4)
 
     echo "   🎵 JACK: $jack_status"
-    if [ "$jack_status" = "✅ Aktiv" ]; then
+    if [ "$jack_status" = "✅ Active" ]; then
         settings_text="${bufsize}@${samplerate}Hz"
         if [ "$nperiods" != "unknown" ]; then
             settings_text="$settings_text, $nperiods periods"
@@ -1371,33 +1371,33 @@ show_status() {
 
     # Audio-Performance mit konsistenter Bewertung (identisch zur detaillierten Ansicht)
     if [ "$total_current_xruns" -eq 0 ] && [ "$recent_xruns" -eq 0 ]; then
-        echo "   ✅ Audio-Performance: Keine Probleme"
-        if [ "$jack_status" = "✅ Aktiv" ]; then
-            echo "       $settings_text läuft optimal stabil"
+        echo "   ✅ Audio performance: No problems"
+        if [ "$jack_status" = "✅ Active" ]; then
+            echo "       $settings_text running optimally stable"
         fi
     elif [ "$total_current_xruns" -lt 5 ] && [ "$severe_xruns" -eq 0 ]; then
         echo "   🟡 Audio-Performance: Gelegentliche Probleme ($total_current_xruns Xruns)"
-        if [ "$jack_status" = "✅ Aktiv" ] && [ "$bufsize" != "unknown" ]; then
+        if [ "$jack_status" = "✅ Active" ] && [ "$bufsize" != "unknown" ]; then
             if [ "$bufsize" -le 128 ]; then
-                echo "       💡 Bei häufigeren Problemen: Buffer von $bufsize auf 256 Samples erhöhen"
+                echo "       💡 For frequent problems: Increase buffer from $bufsize to 256 samples"
             elif [ "$bufsize" -le 256 ]; then
-                echo "       💡 Bei häufigeren Problemen: Buffer von $bufsize auf 512 Samples erhöhen"
+                echo "       💡 For frequent problems: Increase buffer from $bufsize to 512 samples"
             fi
         fi
     else
         echo "   🔴 Audio-Performance: Häufige Probleme ($total_current_xruns Xruns)"
-        if [ "$jack_status" = "✅ Aktiv" ] && [ "$bufsize" != "unknown" ]; then
+        if [ "$jack_status" = "✅ Active" ] && [ "$bufsize" != "unknown" ]; then
             if [ "$bufsize" -le 64 ]; then
-                echo "       💡 Sofort-Maßnahme: Buffer von $bufsize auf 256+ Samples erhöhen"
+                echo "       💡 Immediate action: Increase buffer from $bufsize to 256+ samples"
             elif [ "$bufsize" -le 128 ]; then
-                echo "       💡 Empfehlung: Buffer von $bufsize auf 512 Samples erhöhen"
+                echo "       💡 Recommendation: Increase buffer from $bufsize to 512 samples"
             elif [ "$bufsize" -le 256 ]; then
-                echo "       💡 Buffer von $bufsize auf 1024 Samples oder höher erhöhen"
+                echo "       💡 Increase buffer from $bufsize to 1024 Samples or higher"
             else
-                echo "       💡 Buffer bereits sehr hoch ($bufsize) - System-Optimierung nötig"
+                echo "       💡 Buffer already very high ($bufsize) - system optimization needed"
             fi
             if [ "$samplerate" != "unknown" ] && [ "$samplerate" -gt 48000 ]; then
-                echo "       💡 Oder Samplerate von ${samplerate}Hz auf 48kHz reduzieren"
+                echo "       💡 Or reduce sample rate from ${samplerate}Hz to 48kHz reduzieren"
             fi
         fi
     fi
@@ -1407,8 +1407,8 @@ show_status() {
     fi
 
     echo ""
-    echo "💡 Dynamische Buffer-Empfehlungen basierend auf aktuellen Settings:"
-    if [ "$jack_status" = "✅ Aktiv" ] && [ "$bufsize" != "unknown" ] && [ "$samplerate" != "unknown" ]; then
+    echo "💡 Dynamische Buffer-Empfehlungen basierend to aktuellen Settings:"
+    if [ "$jack_status" = "✅ Active" ] && [ "$bufsize" != "unknown" ] && [ "$samplerate" != "unknown" ]; then
         # Berechne aktuelle Latenz mit Fallback
         if command -v bc &> /dev/null; then
             latency_ms=$(echo "scale=1; $bufsize * 1000 / $samplerate" | bc -l 2>/dev/null || echo "~$(($bufsize * 1000 / $samplerate))")
@@ -1418,7 +1418,7 @@ show_status() {
 
         echo "   🎯 Aktuell: $bufsize Samples @ ${samplerate}Hz = ${latency_ms}ms"
 
-        # Dynamische Empfehlungen basierend auf Xrun-Situation
+        # Dynamische Empfehlungen basierend to Xrun-Situation
         if [ "$total_current_xruns" -gt 20 ]; then
             # Aggressive Empfehlungen bei vielen Xruns
             if [ "$bufsize" -le 256 ]; then
@@ -1428,9 +1428,9 @@ show_status() {
                 else
                     safe_latency="~$(($safe_buffer * 1000 / $samplerate))"
                 fi
-                echo "   🔴 Probleme erkannt: $safe_buffer Samples = ${safe_latency}ms empfohlen"
+                echo "   🔴 Problems detected: $safe_buffer Samples = ${safe_latency}ms recommended"
             else
-                echo "   🔴 Buffer bereits hoch - prüfen Sie System-Performance"
+                echo "   🔴 Buffer already high - prüfen Sie System-Performance"
             fi
         elif [ "$total_current_xruns" -gt 5 ]; then
             # Moderate Empfehlungen bei einigen Xruns
@@ -1441,7 +1441,7 @@ show_status() {
                 else
                     safe_latency="~$(($safe_buffer * 1000 / $samplerate))"
                 fi
-                echo "   🟡 Stabilität: $safe_buffer Samples = ${safe_latency}ms empfohlen"
+                echo "   🟡 Stabilität: $safe_buffer Samples = ${safe_latency}ms recommended"
             fi
         else
             # Standard-Empfehlungen bei wenigen/keinen Xruns
@@ -1462,7 +1462,7 @@ show_status() {
                 fi
                 echo "   🟢 Stabiler: $safe_buffer Samples = ${safe_latency}ms"
             else
-                echo "   ✅ Buffer bereits in stabilem Bereich"
+                echo "   ✅ Buffer already in stable range"
             fi
         fi
 
@@ -1473,12 +1473,12 @@ show_status() {
             else
                 alt_latency="~$(($bufsize * 1000 / 48000))"
             fi
-            echo "   🔄 Alternative: $bufsize@48kHz = ${alt_latency}ms (stabiler)"
+            echo "   🔄 Alternative: $bufsize@48kHz = ${alt_latency}ms (more stable)"
         fi
 
         # Periods-Empfehlung bei Problemen
         if [ "$nperiods" != "unknown" ] && [ "$nperiods" -eq 2 ] && [ "$total_current_xruns" -gt 5 ]; then
-            echo "   🔧 Wichtig: 3 periods statt $nperiods für bessere Latenz-Toleranz"
+            echo "   🔧 Important: Use 3 periods instead of $nperiods für bessere Latenz-Toleranz"
         fi
     else
         echo "   🟢 Stabil (256): Sehr stabil, niedrige Latenz (~5.3ms @ 48kHz)"
@@ -1487,20 +1487,20 @@ show_status() {
         echo "   🔴 Extrem (32): Nur für Tests (~0.7ms @ 48kHz)"
     fi
     echo ""
-    echo "🎯 v4 Hybrid: Stabilität durch optimierte CPU-Zuweisung, Performance wo nötig!"
+    echo "🎯 v4 Hybrid: Stability through optimized CPU assignment, performance where needed!"
 }
 
 # Hauptfunktion
 main_monitoring_loop() {
     log_message "🚀 MOTU M4 Dynamic Optimizer v4 gestartet"
-    log_message "🏗️  Hybrid-Strategie: P-Cores Performance, Background E-Cores Powersave, IRQ E-Cores Performance"
+    log_message "🏗️  Hybrid Strategy: P-Cores Performance, Background E-Cores Powersave, IRQ E-Cores Performance"
     log_message "📊 System: Ubuntu 24.04, $(nproc) CPU-Kerne"
-    log_message "🎯 Process-Pinning:"
+    log_message "🎯 Process pinning:"
     log_message "   P-Cores DAW/Plugins: $DAW_CPUS"
     log_message "   P-Cores JACK/PipeWire: $AUDIO_MAIN_CPUS"
     log_message "   E-Cores IRQ-Handling: $IRQ_CPUS"
     log_message "   E-Cores Background: $BACKGROUND_CPUS"
-    log_message "🎵 Xrun-Monitoring: Aktiviert"
+    log_message "🎵 Xrun monitoring: Activated"
 
     # Script-Performance optimieren
     optimize_script_performance
@@ -1523,7 +1523,7 @@ main_monitoring_loop() {
                 current_state="optimized"
                 check_counter=0
             else
-                # Prozess-Affinität nur alle 30 Sekunden prüfen (Performance-Optimierung)
+                # Check process affinity only every 30 seconds (performance optimization)
                 check_counter=$((check_counter + 1))
                 if [ $check_counter -ge 6 ]; then
                     optimize_audio_process_affinity
@@ -1531,10 +1531,10 @@ main_monitoring_loop() {
                 fi
             fi
 
-            # Xrun-Monitoring alle 10 Sekunden (2 Zyklen)
+            # Xrun monitoring every 10 seconds (2 cycles)
             xrun_check_counter=$((xrun_check_counter + 1))
             if [ $xrun_check_counter -ge 2 ]; then
-                # Prüfe Xruns der letzten 30 Sekunden
+                # Check xruns of last 30 seconds
                 if command -v journalctl &> /dev/null; then
                     current_xruns=$(journalctl --since "30 seconds ago" --no-pager -q 2>/dev/null | grep -i "mod\.jack-tunnel.*xrun" | wc -l || echo "0")
 
@@ -1563,7 +1563,7 @@ main_monitoring_loop() {
 # Live Xrun-Monitoring mit verbesserter PipeWire-JACK-Tunnel Erkennung
 live_xrun_monitoring() {
     echo "=== MOTU M4 Live Xrun-Monitor ==="
-    echo "⚡ Überwacht JACK/PipeWire Xruns in Echtzeit"
+    echo "⚡ Monitors JACK/PipeWire xruns in real-time"
     echo "📊 Session gestartet: $(date '+%H:%M:%S')"
 
     # Zeige aktuelle JACK-Settings zu Beginn der Session
@@ -1574,7 +1574,7 @@ live_xrun_monitoring() {
     nperiods=$(echo "$jack_info" | cut -d'|' -f4)
 
     echo "🎵 JACK Status: $jack_status"
-    if [ "$jack_status" = "✅ Aktiv" ]; then
+    if [ "$jack_status" = "✅ Active" ]; then
         settings_text="${bufsize}@${samplerate}Hz"
         if [ "$nperiods" != "unknown" ]; then
             settings_text="$settings_text, $nperiods periods"
@@ -1590,7 +1590,7 @@ live_xrun_monitoring() {
         if [ "$bufsize" -le 64 ]; then
             echo "   ⚠️ Sehr aggressive Buffer-Größe - Xruns wahrscheinlich"
         elif [ "$bufsize" -le 128 ]; then
-            echo "   🟡 Moderate Buffer-Größe - Bei Xruns auf 256+ erhöhen"
+            echo "   🟡 Moderate Buffer-Größe - Bei Xruns to 256+ erhöhen"
         fi
     fi
     echo "🛑 Drücken Sie Ctrl+C zum Beenden"
@@ -1620,7 +1620,7 @@ live_xrun_monitoring() {
             session_start_time=$(date -d "@$xrun_session_start" '+%Y-%m-%d %H:%M:%S')
             current_total_xruns=$(journalctl --since "$session_start_time" --no-pager -q 2>/dev/null | grep -i "mod\.jack-tunnel.*xrun" | wc -l || echo "0")
 
-            # Neue Xruns der letzten 5 Sekunden
+            # New xruns of last 5 seconds
             new_xruns_this_interval=$(journalctl --since "5 seconds ago" --no-pager -q 2>/dev/null | grep -i "mod\.jack-tunnel.*xrun" | wc -l || echo "0")
         fi
 
@@ -1636,7 +1636,7 @@ live_xrun_monitoring() {
             xrun_timestamps+=($current_timestamp)
         fi
 
-        # Entferne alte Timestamps (älter als 30 Sekunden)
+        # Remove old timestamps (older than 30 seconds)
         cutoff_time=$((current_timestamp - 30))
         new_timestamps=()
         for ts in "${xrun_timestamps[@]}"; do
@@ -1646,10 +1646,10 @@ live_xrun_monitoring() {
         done
         xrun_timestamps=("${new_timestamps[@]}")
 
-        # Xrun-Rate in letzten 30 Sekunden
+        # Xrun rate in last 30 seconds
         xrun_rate_30s=${#xrun_timestamps[@]}
 
-        # Max Xruns pro Intervall tracking
+        # Max xruns per interval tracking
         if [ "$new_xruns_this_interval" -gt "$max_xruns_per_interval" ]; then
             max_xruns_per_interval=$new_xruns_this_interval
         fi
@@ -1658,7 +1658,7 @@ live_xrun_monitoring() {
         audio_processes=$(ps -eo pid,comm --no-headers | grep -E "jackd|pipewire|yoshimi|pianoteq|qjackctl" | wc -l)
 
         # MOTU M4 Status
-        motu_status="❌ Nicht erkannt"
+        motu_status="❌ Not detected"
         if [ "$(check_motu_m4)" = "true" ]; then
             motu_status="✅ Verbunden"
         fi
@@ -1668,7 +1668,7 @@ live_xrun_monitoring() {
         session_minutes=$((session_duration / 60))
         session_seconds=$((session_duration % 60))
 
-        # Status-Icon basierend auf aktuellen Xruns
+        # Status-Icon basierend to aktuellen Xruns
         status_icon="✅"
         if [ "$new_xruns_this_interval" -gt 0 ]; then
             status_icon="⚠️"
@@ -1677,14 +1677,14 @@ live_xrun_monitoring() {
             status_icon="❌"
         fi
 
-        # Live-Anzeige mit JACK-Settings (kompakt)
+        # Live display with JACK settings (compact)
         current_display_time=$(date '+%H:%M:%S')
 
-        # Kompakte JACK-Info für Live-Display
+        # Compact JACK info for live display
         jack_compact=""
         current_jack_info=$(get_jack_settings)
         current_jack_status=$(echo "$current_jack_info" | cut -d'|' -f1)
-        if [ "$current_jack_status" = "✅ Aktiv" ]; then
+        if [ "$current_jack_status" = "✅ Active" ]; then
             current_bufsize=$(echo "$current_jack_info" | cut -d'|' -f2)
             current_samplerate=$(echo "$current_jack_info" | cut -d'|' -f3)
             jack_compact=" | 🎵 ${current_bufsize}@${current_samplerate}Hz"
@@ -1695,28 +1695,28 @@ live_xrun_monitoring() {
         printf "\r[%s] %s MOTU M4: %s | 🎯 Audio: %d%s | ⚠️ Session: %d | 🔥 30s: %d | 📈 Max: %d | ⏱️ %02d:%02d" \
                "$current_display_time" "$status_icon" "$motu_status" "$audio_processes" "$jack_compact" "$xrun_total" "$xrun_rate_30s" "$max_xruns_per_interval" "$session_minutes" "$session_seconds"
 
-        # Bei neuen Xruns: Neue Zeile mit Details und Empfehlungen
+        # On new xruns: New line with details and recommendations
         if [ "$new_xruns_this_interval" -gt 0 ]; then
             echo ""
             # Zeige die neueste Xrun-Meldung
             latest_xrun=$(journalctl --since "5 seconds ago" --no-pager -q 2>/dev/null | grep -i "mod\.jack-tunnel.*xrun" | tail -1)
-            echo "🚨 [$current_display_time] Neue Xruns: $new_xruns_this_interval"
+            echo "🚨 [$current_display_time] New xruns: $new_xruns_this_interval"
             if [ -n "$latest_xrun" ]; then
                 xrun_details=$(echo "$latest_xrun" | cut -d' ' -f5-)
                 echo "📋 Details: $xrun_details"
             fi
 
             # Dynamische Empfehlung bei Xruns
-            if [ "$current_jack_status" = "✅ Aktiv" ]; then
+            if [ "$current_jack_status" = "✅ Active" ]; then
                 current_bufsize=$(echo "$current_jack_info" | cut -d'|' -f2)
                 current_samplerate=$(echo "$current_jack_info" | cut -d'|' -f3)
                 current_nperiods=$(echo "$current_jack_info" | cut -d'|' -f4)
 
                 if [ "$current_bufsize" != "unknown" ]; then
                     if [ "$current_bufsize" -le 64 ]; then
-                        echo "💡 Empfehlung: Buffer von $current_bufsize auf 128+ Samples erhöhen"
+                        echo "💡 Recommendation: Increase buffer from $current_bufsize to 128+ samples"
                     elif [ "$current_bufsize" -le 128 ] && [ "$xrun_rate_30s" -gt 5 ]; then
-                        echo "💡 Empfehlung: Buffer von $current_bufsize auf 256 Samples erhöhen"
+                        echo "💡 Recommendation: Increase buffer from $current_bufsize to 256 samples"
                     elif [ "$current_nperiods" != "unknown" ] && [ "$current_nperiods" -eq 2 ] && [ "$xrun_rate_30s" -gt 3 ]; then
                         echo "💡 Tipp: 3 periods statt $current_nperiods für bessere Latenz-Toleranz"
                     fi
@@ -1742,27 +1742,27 @@ case "${1:-monitor}" in
             log_message "🎵 Einmalige Aktivierung der Hybrid Audio-Optimierungen"
             activate_audio_optimizations
         else
-            log_message "🔧 MOTU M4 nicht erkannt - Deaktiviere Optimierungen"
+            log_message "🔧 MOTU M4 not detected - Deactivating optimizations"
             deactivate_audio_optimizations
         fi
         ;;
     "once-delayed")
         motu_connected=$(check_motu_m4)
         if [ "$motu_connected" = "true" ]; then
-            log_message "🎵 Delayed System-Service: Warte auf User-Session Audio-Prozesse"
+            log_message "🎵 Delayed system service: Waiting for user session audio processes"
 
-            # Intelligente Wartezeit für User-Audio-Services
+            # Intelligent wait time for user audio services
             AUDIO_WAIT=0
             MAX_AUDIO_WAIT=45
             FOUND_USER_AUDIO=false
 
             while [ $AUDIO_WAIT -lt $MAX_AUDIO_WAIT ]; do
-                # Prüfe auf User-Audio-Prozesse (nicht nur System-Audio)
+                # Prüfe to User-Audio-Prozesse (nicht nur System-Audio)
                 USER_PIPEWIRE=$(pgrep -f "pipewire" | wc -l)
                 USER_JACK=$(pgrep -f "jackdbus" | wc -l)
 
                 if [ "$USER_PIPEWIRE" -ge 2 ] || [ "$USER_JACK" -ge 1 ]; then
-                    log_message "🎯 User-Audio-Services erkannt nach ${AUDIO_WAIT}s (PipeWire: $USER_PIPEWIRE, JACK: $USER_JACK)"
+                    log_message "🎯 User audio services detected after ${AUDIO_WAIT}s (PipeWire: $USER_PIPEWIRE, JACK: $USER_JACK)"
                     FOUND_USER_AUDIO=true
                     break
                 fi
@@ -1770,23 +1770,23 @@ case "${1:-monitor}" in
                 sleep 2
                 AUDIO_WAIT=$((AUDIO_WAIT + 2))
 
-                # Fortschritts-Log alle 10 Sekunden
+                # Progress log every 10 seconds
                 if [ $((AUDIO_WAIT % 10)) -eq 0 ]; then
-                    log_message "⏳ Warte auf User-Audio-Services... ${AUDIO_WAIT}/${MAX_AUDIO_WAIT}s (PipeWire: $USER_PIPEWIRE, JACK: $USER_JACK)"
+                    log_message "⏳ Waiting for user audio services... ${AUDIO_WAIT}/${MAX_AUDIO_WAIT}s (PipeWire: $USER_PIPEWIRE, JACK: $USER_JACK)"
                 fi
             done
 
             if [ "$FOUND_USER_AUDIO" = "true" ]; then
-                # Zusätzliche 3 Sekunden für Service-Initialisierung
+                # Additional 3 seconds for service initialization
                 sleep 3
                 log_message "🎵 Starte verzögerte Audio-Optimierung für User-Session-Prozesse"
                 activate_audio_optimizations
             else
-                log_message "⚠️  Timeout: Keine User-Audio-Services nach ${MAX_AUDIO_WAIT}s erkannt, starte Standard-Optimierung"
+                log_message "⚠️  Timeout: No user audio services after ${MAX_AUDIO_WAIT}s detected, starting standard optimization"
                 activate_audio_optimizations
             fi
         else
-            log_message "🔧 MOTU M4 nicht erkannt - Deaktiviere Optimierungen"
+            log_message "🔧 MOTU M4 not detected - Deactivating optimizations"
             deactivate_audio_optimizations
         fi
         ;;
@@ -1801,16 +1801,16 @@ case "${1:-monitor}" in
         deactivate_audio_optimizations
         ;;
     *)
-        echo "MOTU M4 Dynamic Optimizer v4 - Hybrid-Strategie (Stabilität-optimiert)"
+        echo "MOTU M4 Dynamic Optimizer v4 - Hybrid Strategy (Stability-optimized)"
         echo ""
-        echo "Verwendung: $0 [monitor|once|status|detailed|live-xruns|stop]"
+        echo "Usage: $0 [monitor|once|status|detailed|live-xruns|stop]"
         echo ""
         echo "Kommandos:"
-        echo "  monitor     - Kontinuierliche Überwachung (Standard)"
+        echo "  monitor     - Continuous monitoring (default)"
         echo "  once        - Einmalige Optimierung"
-        echo "  status      - Standard Status-Anzeige"
-        echo "  detailed    - Detailliertes Hardware-Monitoring"
-        echo "  live-xruns  - Live Xrun-Monitoring (Echtzeit)"
+        echo "  status      - Standard status display"
+        echo "  detailed    - Detailed hardware monitoring"
+        echo "  live-xruns  - Live xrun monitoring (real-time)"
         echo "  stop        - Optimierungen deaktivieren"
         echo ""
         echo "CPU-Strategie v4 (Hybrid für Stabilität):"
@@ -1818,11 +1818,11 @@ case "${1:-monitor}" in
         echo "  E-Cores 8-13:       Powersave (Background, weniger Störungen)"
         echo "  E-Cores 14-19:      Performance (IRQ-Handling)"
         echo ""
-        echo "Process-Pinning bleibt optimal:"
-        echo "  P-Cores 0-5: DAW/Plugins (maximale Single-Thread-Performance)"
+        echo "Process pinning remains optimal:"
+        echo "  P-Cores 0-5: DAW/Plugins (maximum single-thread performance)"
         echo "  P-Cores 6-7: JACK/PipeWire (dedizierte Audio-Engine)"
         echo "  E-Cores 8-13: Background-Tasks"
-        echo "  E-Cores 14-19: IRQ-Handling (stabile Latenz)"
+        echo "  E-Cores 14-19: IRQ handling (stable latency)"
         echo ""
         echo "🎯 v4 Vorteil: Optimale Balance aus Performance und Stabilität!"
         exit 1

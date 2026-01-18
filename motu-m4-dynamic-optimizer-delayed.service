@@ -3,11 +3,11 @@ Description=MOTU M4 Dynamic Audio Optimizer (Delayed for User Sessions)
 Documentation=man:systemd.service(5)
 After=sound.target multi-user.target graphical.target
 Wants=sound.target
-# Delayed service - wartet auf User-Session-Audio-Services
+# Delayed service - waits for user session audio services
 
 [Service]
 Type=oneshot
-# Verzögerte Ausführung für User-Session-Audio-Services
+# Delayed execution for user session audio services
 ExecStartPre=/bin/sleep 15
 ExecStart=/usr/local/bin/motu-m4-dynamic-optimizer.sh once-delayed
 ExecStop=/usr/local/bin/motu-m4-dynamic-optimizer.sh stop
@@ -16,15 +16,15 @@ User=root
 StandardOutput=journal
 StandardError=journal
 
-# Umgebungsvariablen
+# Environment variables
 Environment="PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 
-# Timeout erhöhen für Wartezeiten
+# Increase timeout for wait times
 TimeoutStartSec=60
 
-# Service läuft nur on-demand, kein automatischer Restart
+# Service runs only on-demand, no automatic restart
 # Restart=no (default)
 
 [Install]
-# Nicht automatisch starten - wird von udev gestartet
+# Do not start automatically - started by udev
 # WantedBy=multi-user.target
