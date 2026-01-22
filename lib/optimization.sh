@@ -85,7 +85,8 @@ _optimize_p_cores() {
         # Set governor to performance
         if [ -e "/sys/devices/system/cpu/cpu$cpu/cpufreq/scaling_governor" ]; then
             echo performance > "/sys/devices/system/cpu/cpu$cpu/cpufreq/scaling_governor" 2>/dev/null
-            if [ $? -eq 0 ]; then
+            result=$?
+            if [ $result -eq 0 ]; then
                 log_message "  P-Core CPU $cpu: Governor set to 'performance'"
             fi
         fi
@@ -96,7 +97,8 @@ _optimize_p_cores() {
             max_freq=$(cat "/sys/devices/system/cpu/cpu$cpu/cpufreq/scaling_max_freq" 2>/dev/null)
             if [ -n "$max_freq" ]; then
                 echo "$max_freq" > "/sys/devices/system/cpu/cpu$cpu/cpufreq/scaling_min_freq" 2>/dev/null
-                if [ $? -eq 0 ]; then
+                result=$?
+                if [ $result -eq 0 ]; then
                     log_message "  P-Core CPU $cpu: Min-Frequency set to maximum"
                 fi
             fi
@@ -114,7 +116,8 @@ _configure_background_e_cores() {
             current_governor=$(cat "/sys/devices/system/cpu/cpu$cpu/cpufreq/scaling_governor")
             if [ "$current_governor" != "$DEFAULT_GOVERNOR" ]; then
                 echo "$DEFAULT_GOVERNOR" > "/sys/devices/system/cpu/cpu$cpu/cpufreq/scaling_governor" 2>/dev/null
-                if [ $? -eq 0 ]; then
+                result=$?
+                if [ $result -eq 0 ]; then
                     log_message "  Background E-Core CPU $cpu: Governor set to '$DEFAULT_GOVERNOR'"
                 fi
             fi
@@ -129,7 +132,8 @@ _optimize_irq_e_cores() {
     for cpu in {14..19}; do
         if [ -e "/sys/devices/system/cpu/cpu$cpu/cpufreq/scaling_governor" ]; then
             echo performance > "/sys/devices/system/cpu/cpu$cpu/cpufreq/scaling_governor" 2>/dev/null
-            if [ $? -eq 0 ]; then
+            result=$?
+            if [ $result -eq 0 ]; then
                 log_message "  IRQ E-Core CPU $cpu: Governor set to 'performance'"
             fi
         fi
@@ -147,7 +151,8 @@ _reset_cpu_governors() {
             current_governor=$(cat "/sys/devices/system/cpu/cpu$cpu/cpufreq/scaling_governor")
             if [ "$current_governor" = "performance" ]; then
                 echo "$DEFAULT_GOVERNOR" > "/sys/devices/system/cpu/cpu$cpu/cpufreq/scaling_governor" 2>/dev/null
-                if [ $? -eq 0 ]; then
+                result=$?
+                if [ $result -eq 0 ]; then
                     log_message "  CPU $cpu: Governor reset to '$DEFAULT_GOVERNOR'"
                 fi
             fi
@@ -178,7 +183,8 @@ _optimize_usb_irqs() {
     for irq in $usb_irqs; do
         if [ -e "/proc/irq/$irq/smp_affinity_list" ]; then
             echo "$IRQ_CPUS" > "/proc/irq/$irq/smp_affinity_list" 2>/dev/null
-            if [ $? -eq 0 ]; then
+            result=$?
+            if [ $result -eq 0 ]; then
                 log_message "  USB controller IRQ $irq set to E-Cores $IRQ_CPUS"
             fi
 
@@ -198,7 +204,8 @@ _optimize_usb_irqs() {
     for irq in 156 176; do
         if [ -e "/proc/irq/$irq/smp_affinity_list" ]; then
             echo "$IRQ_CPUS" > "/proc/irq/$irq/smp_affinity_list" 2>/dev/null
-            if [ $? -eq 0 ]; then
+            result=$?
+            if [ $result -eq 0 ]; then
                 log_message "  Fallback: IRQ $irq set to E-Cores $IRQ_CPUS"
             fi
         fi
@@ -218,7 +225,8 @@ _optimize_audio_irqs() {
             current_affinity=$(cat "/proc/irq/$irq/smp_affinity_list")
             if [ "$current_affinity" != "$IRQ_CPUS" ]; then
                 echo "$IRQ_CPUS" > "/proc/irq/$irq/smp_affinity_list" 2>/dev/null
-                if [ $? -eq 0 ]; then
+                result=$?
+                if [ $result -eq 0 ]; then
                     log_message "  Audio IRQ $irq set to E-Cores $IRQ_CPUS (was: $current_affinity)"
                 fi
             fi
@@ -239,7 +247,8 @@ _reset_usb_irqs() {
     for irq in $usb_irqs; do
         if [ -e "/proc/irq/$irq/smp_affinity_list" ]; then
             echo "$ALL_CPUS" > "/proc/irq/$irq/smp_affinity_list" 2>/dev/null
-            if [ $? -eq 0 ]; then
+            result=$?
+            if [ $result -eq 0 ]; then
                 log_message "  USB controller IRQ $irq reset to all CPUs ($ALL_CPUS)"
             fi
 
@@ -259,7 +268,8 @@ _reset_audio_irqs() {
     for irq in $audio_irqs; do
         if [ -e "/proc/irq/$irq/smp_affinity_list" ]; then
             echo "$ALL_CPUS" > "/proc/irq/$irq/smp_affinity_list" 2>/dev/null
-            if [ $? -eq 0 ]; then
+            result=$?
+            if [ $result -eq 0 ]; then
                 log_message "  Audio IRQ $irq reset to all CPUs ($ALL_CPUS)"
             fi
 

@@ -78,7 +78,8 @@ reset_audio_process_affinity() {
             # Reset to all CPUs
             if command -v taskset &> /dev/null; then
                 taskset -cp "$ALL_CPUS" "$pid" 2>/dev/null
-                if [ $? -eq 0 ]; then
+                result=$?
+                if [ $result -eq 0 ]; then
                     log_message "  Process $process ($pid) reset to all CPUs ($ALL_CPUS)"
                 fi
             fi

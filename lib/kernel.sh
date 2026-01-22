@@ -14,7 +14,8 @@ optimize_kernel_parameters() {
     # Real-Time Scheduling - Allow unlimited RT scheduling
     if [ -e /proc/sys/kernel/sched_rt_runtime_us ]; then
         echo -1 > /proc/sys/kernel/sched_rt_runtime_us 2>/dev/null
-        if [ $? -eq 0 ]; then
+        result=$?
+        if [ $result -eq 0 ]; then
             log_message "  RT-Runtime: Unlimited"
         fi
     fi
@@ -22,7 +23,8 @@ optimize_kernel_parameters() {
     # Memory Management - Reduce swapping for audio stability
     if [ -e /proc/sys/vm/swappiness ]; then
         echo 10 > /proc/sys/vm/swappiness 2>/dev/null
-        if [ $? -eq 0 ]; then
+        result=$?
+        if [ $result -eq 0 ]; then
             log_message "  Swappiness: 10"
         fi
     fi
@@ -30,7 +32,8 @@ optimize_kernel_parameters() {
     # Scheduler Latency - Reduce for better audio response
     if [ -e /proc/sys/kernel/sched_latency_ns ]; then
         echo 1000000 > /proc/sys/kernel/sched_latency_ns 2>/dev/null
-        if [ $? -eq 0 ]; then
+        result=$?
+        if [ $result -eq 0 ]; then
             log_message "  Scheduler latency: 1ms"
         fi
     fi
@@ -38,7 +41,8 @@ optimize_kernel_parameters() {
     # Minimum Granularity - Reduce for finer scheduling
     if [ -e /proc/sys/kernel/sched_min_granularity_ns ]; then
         echo 100000 > /proc/sys/kernel/sched_min_granularity_ns 2>/dev/null
-        if [ $? -eq 0 ]; then
+        result=$?
+        if [ $result -eq 0 ]; then
             log_message "  Min granularity: 0.1ms"
         fi
     fi
@@ -46,7 +50,8 @@ optimize_kernel_parameters() {
     # Wakeup Granularity - Reduce for faster process wakeup
     if [ -e /proc/sys/kernel/sched_wakeup_granularity_ns ]; then
         echo 100000 > /proc/sys/kernel/sched_wakeup_granularity_ns 2>/dev/null
-        if [ $? -eq 0 ]; then
+        result=$?
+        if [ $result -eq 0 ]; then
             log_message "  Wakeup granularity: 0.1ms"
         fi
     fi
@@ -63,7 +68,8 @@ reset_kernel_parameters() {
     # RT-Scheduling-Limit: Standard (95% of period for RT tasks)
     if [ -e /proc/sys/kernel/sched_rt_runtime_us ]; then
         echo 950000 > /proc/sys/kernel/sched_rt_runtime_us 2>/dev/null
-        if [ $? -eq 0 ]; then
+        result=$?
+        if [ $result -eq 0 ]; then
             log_message "  RT-Runtime: Standard (950ms)"
         fi
     fi
@@ -71,7 +77,8 @@ reset_kernel_parameters() {
     # Swappiness: Standard
     if [ -e /proc/sys/vm/swappiness ]; then
         echo 60 > /proc/sys/vm/swappiness 2>/dev/null
-        if [ $? -eq 0 ]; then
+        result=$?
+        if [ $result -eq 0 ]; then
             log_message "  Swappiness: Standard (60)"
         fi
     fi
@@ -79,7 +86,8 @@ reset_kernel_parameters() {
     # Scheduler latency: Standard
     if [ -e /proc/sys/kernel/sched_latency_ns ]; then
         echo 6000000 > /proc/sys/kernel/sched_latency_ns 2>/dev/null
-        if [ $? -eq 0 ]; then
+        result=$?
+        if [ $result -eq 0 ]; then
             log_message "  Scheduler latency: Standard (6ms)"
         fi
     fi
@@ -87,7 +95,8 @@ reset_kernel_parameters() {
     # Min granularity: Standard
     if [ -e /proc/sys/kernel/sched_min_granularity_ns ]; then
         echo 750000 > /proc/sys/kernel/sched_min_granularity_ns 2>/dev/null
-        if [ $? -eq 0 ]; then
+        result=$?
+        if [ $result -eq 0 ]; then
             log_message "  Min granularity: Standard (0.75ms)"
         fi
     fi
@@ -95,7 +104,8 @@ reset_kernel_parameters() {
     # Wakeup granularity: Standard
     if [ -e /proc/sys/kernel/sched_wakeup_granularity_ns ]; then
         echo 1000000 > /proc/sys/kernel/sched_wakeup_granularity_ns 2>/dev/null
-        if [ $? -eq 0 ]; then
+        result=$?
+        if [ $result -eq 0 ]; then
             log_message "  Wakeup granularity: Standard (1ms)"
         fi
     fi
@@ -112,7 +122,8 @@ optimize_advanced_audio_settings() {
     # USB-Bulk-Transfer-Optimizations - Increase USB buffer
     if [ -e /sys/module/usbcore/parameters/usbfs_memory_mb ]; then
         echo 256 > /sys/module/usbcore/parameters/usbfs_memory_mb 2>/dev/null
-        if [ $? -eq 0 ]; then
+        result=$?
+        if [ $result -eq 0 ]; then
             log_message "  USB-Memory-Buffer: 256MB"
         fi
     fi
@@ -120,7 +131,8 @@ optimize_advanced_audio_settings() {
     # HPET frequency - Increase for better timing precision
     if [ -e /proc/sys/dev/hpet/max-user-freq ]; then
         echo 2048 > /proc/sys/dev/hpet/max-user-freq 2>/dev/null
-        if [ $? -eq 0 ]; then
+        result=$?
+        if [ $result -eq 0 ]; then
             log_message "  HPET-Frequency: 2048Hz"
         fi
     fi
