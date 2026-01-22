@@ -1,5 +1,7 @@
 # MOTU M4 Dynamic Audio Optimizer
 
+[![ShellCheck](https://github.com/giang17/motu-m4-dynamic-optimizer/actions/workflows/shellcheck.yml/badge.svg)](https://github.com/giang17/motu-m4-dynamic-optimizer/actions/workflows/shellcheck.yml)
+
 A hybrid udev/systemd solution for optimizing Linux audio performance with the MOTU M4 audio interface.
 
 ## Features
@@ -162,6 +164,21 @@ See [README-HYBRID.md](README-HYBRID.md) for comprehensive documentation includi
 - Troubleshooting guides
 - Performance monitoring
 - GRUB parameters for best performance
+
+## Development
+
+### Code Quality
+
+This project uses [ShellCheck](https://www.shellcheck.net/) for static analysis of shell scripts. ShellCheck runs automatically on all pull requests and pushes via GitHub Actions.
+
+To run ShellCheck locally:
+```bash
+# Install ShellCheck
+sudo apt-get install shellcheck
+
+# Check all scripts
+shellcheck *.sh lib/*.sh
+```
 
 ## License
 
