@@ -112,11 +112,16 @@ get_dynamic_xrun_recommendations() {
     local severity=$2
 
     # Get current JACK settings
-    local jack_info=$(get_jack_settings)
-    local jack_status=$(echo "$jack_info" | cut -d'|' -f1)
-    local bufsize=$(echo "$jack_info" | cut -d'|' -f2)
-    local samplerate=$(echo "$jack_info" | cut -d'|' -f3)
-    local nperiods=$(echo "$jack_info" | cut -d'|' -f4)
+    local jack_info
+    jack_info=$(get_jack_settings)
+    local jack_status
+    jack_status=$(echo "$jack_info" | cut -d'|' -f1)
+    local bufsize
+    bufsize=$(echo "$jack_info" | cut -d'|' -f2)
+    local samplerate
+    samplerate=$(echo "$jack_info" | cut -d'|' -f3)
+    local nperiods
+    nperiods=$(echo "$jack_info" | cut -d'|' -f4)
 
     # Format current settings for display
     local settings_info=""
@@ -232,10 +237,14 @@ is_jack_running() {
 
 # Get compact JACK info string for display
 get_jack_compact_info() {
-    local jack_info=$(get_jack_settings)
-    local jack_status=$(echo "$jack_info" | cut -d'|' -f1)
-    local bufsize=$(echo "$jack_info" | cut -d'|' -f2)
-    local samplerate=$(echo "$jack_info" | cut -d'|' -f3)
+    local jack_info
+    jack_info=$(get_jack_settings)
+    local jack_status
+    jack_status=$(echo "$jack_info" | cut -d'|' -f1)
+    local bufsize
+    bufsize=$(echo "$jack_info" | cut -d'|' -f2)
+    local samplerate
+    samplerate=$(echo "$jack_info" | cut -d'|' -f3)
 
     if [ "$jack_status" = "✅ Active" ]; then
         echo "🎵 ${bufsize}@${samplerate}Hz"
