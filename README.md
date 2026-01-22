@@ -165,4 +165,4 @@ See [README-HYBRID.md](README-HYBRID.md) for comprehensive documentation includi
 
 ## License
 
-MIT License
+This project is licensed under the MIT License — see [LICENSE](LICENSE) for details.
