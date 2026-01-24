@@ -13,7 +13,7 @@
 #     Continuous monitoring loop for systemd service.
 #     @return   : never (infinite loop)
 #     @requires : Root privileges
-#     @stdout   : Log messages via log_message()
+#     @stdout   : Log messages via log_info(), log_warn(), log_debug()
 #     @behavior :
 #       - Every 5s: Check MOTU M4 connection
 #       - Every 30s: Re-apply process affinity
@@ -38,7 +38,7 @@
 #     Checks xruns and logs warnings if threshold exceeded.
 #     @param  last_count : int - Previous xrun count
 #     @exit              : Current xrun count (capped at 255)
-#     @stdout            : Warning messages via log_message()
+#     @stdout            : Warning messages via log_warn(), log_info()
 #
 #   _show_live_monitor_jack_info()
 #     Displays JACK status at live monitor start.
@@ -74,7 +74,7 @@
 #   - config.sh (OPTIMIZER_NAME, OPTIMIZER_VERSION, OPTIMIZER_STRATEGY,
 #                DAW_CPUS, AUDIO_MAIN_CPUS, IRQ_CPUS, BACKGROUND_CPUS,
 #                MONITOR_INTERVAL, MAX_AUDIO_WAIT, XRUN_WARNING_THRESHOLD)
-#   - logging.sh (log_message)
+#   - logging.sh (log_info, log_warn, log_debug)
 #   - checks.sh (check_motu_m4, check_cpu_isolation)
 #   - jack.sh (get_jack_settings, calculate_latency_ms, get_jack_compact_info)
 #   - process.sh (optimize_script_performance, optimize_audio_process_affinity)
@@ -103,15 +103,15 @@
 #   4. Monitors xruns and logs warnings when thresholds exceeded
 #   5. Deactivates optimizations when MOTU M4 is disconnected
 main_monitoring_loop() {
-    log_message "🚀 $OPTIMIZER_NAME v$OPTIMIZER_VERSION started"
-    log_message "🏗️  $OPTIMIZER_STRATEGY"
-    log_message "📊 System: Ubuntu 24.04, $(nproc) CPU cores"
-    log_message "🎯 Process pinning:"
-    log_message "   P-Cores DAW/Plugins: $DAW_CPUS"
-    log_message "   P-Cores JACK/PipeWire: $AUDIO_MAIN_CPUS"
-    log_message "   E-Cores IRQ-Handling: $IRQ_CPUS"
-    log_message "   E-Cores Background: $BACKGROUND_CPUS"
-    log_message "🎵 Xrun monitoring: Activated"
+    log_info "🚀 $OPTIMIZER_NAME v$OPTIMIZER_VERSION started"
+    log_info "🏗️  $OPTIMIZER_STRATEGY"
+    log_info "📊 System: Ubuntu 24.04, $(nproc) CPU cores"
+    log_debug "🎯 Process pinning:"
+    log_debug "   P-Cores DAW/Plugins: $DAW_CPUS"
+    log_debug "   P-Cores JACK/PipeWire: $AUDIO_MAIN_CPUS"
+    log_debug "   E-Cores IRQ-Handling: $IRQ_CPUS"
+    log_debug "   E-Cores Background: $BACKGROUND_CPUS"
+    log_info "🎵 Xrun monitoring: Activated"
 
     # Optimize script performance (run on background E-Cores)
     optimize_script_performance
@@ -176,10 +176,10 @@ _check_and_report_xruns() {
         grep -i "mod\.jack-tunnel.*xrun" | wc -l || echo "0")
 
     if [ "$current_xruns" -gt "$XRUN_WARNING_THRESHOLD" ]; then
-        log_message "⚠️ Xrun-Warning: $current_xruns Xruns in 30s (Threshold: $XRUN_WARNING_THRESHOLD)"
-        log_message "💡 Recommendation: Increase buffer size or reduce CPU load"
+        log_warn "⚠️ Xrun-Warning: $current_xruns Xruns in 30s (Threshold: $XRUN_WARNING_THRESHOLD)"
+        log_warn "💡 Recommendation: Increase buffer size or reduce CPU load"
     elif [ "$current_xruns" -gt 0 ] && [ "$current_xruns" -ne "$last_count" ]; then
-        log_message "🎵 Xrun-Monitor: $current_xruns Xruns in last 30s"
+        log_info "🎵 Xrun-Monitor: $current_xruns Xruns in last 30s"
     fi
 
     # Return current count (capped at 255 for exit code)
@@ -424,7 +424,7 @@ delayed_service_start() {
     motu_connected=$(check_motu_m4)
 
     if [ "$motu_connected" = "true" ]; then
-        log_message "🎵 Delayed system service: Waiting for user session audio processes"
+        log_info "🎵 Delayed system service: Waiting for user session audio processes"
 
         # Intelligent wait time for user audio services
         local audio_wait=0
@@ -437,7 +437,7 @@ delayed_service_start() {
             user_jack=$(pgrep -f "jackdbus" | wc -l)
 
             if [ "$user_pipewire" -ge 2 ] || [ "$user_jack" -ge 1 ]; then
-                log_message "🎯 User audio services detected after ${audio_wait}s (PipeWire: $user_pipewire, JACK: $user_jack)"
+                log_info "🎯 User audio services detected after ${audio_wait}s (PipeWire: $user_pipewire, JACK: $user_jack)"
                 found_user_audio=true
                 break
             fi
@@ -447,21 +447,21 @@ delayed_service_start() {
 
             # Progress log every 10 seconds
             if [ $((audio_wait % 10)) -eq 0 ]; then
-                log_message "⏳ Waiting for user audio services... ${audio_wait}/${MAX_AUDIO_WAIT}s (PipeWire: $user_pipewire, JACK: $user_jack)"
+                log_debug "⏳ Waiting for user audio services... ${audio_wait}/${MAX_AUDIO_WAIT}s (PipeWire: $user_pipewire, JACK: $user_jack)"
             fi
         done
 
         if [ "$found_user_audio" = "true" ]; then
             # Additional 3 seconds for service initialization
             sleep 3
-            log_message "🎵 Starting delayed audio optimization for user session processes"
+            log_info "🎵 Starting delayed audio optimization for user session processes"
             activate_audio_optimizations
         else
-            log_message "⚠️  Timeout: No user audio services after ${MAX_AUDIO_WAIT}s detected, starting standard optimization"
+            log_warn "⚠️  Timeout: No user audio services after ${MAX_AUDIO_WAIT}s detected, starting standard optimization"
             activate_audio_optimizations
         fi
     else
-        log_message "🔧 MOTU M4 not detected - Deactivating optimizations"
+        log_info "🔧 MOTU M4 not detected - Deactivating optimizations"
         deactivate_audio_optimizations
     fi
 }

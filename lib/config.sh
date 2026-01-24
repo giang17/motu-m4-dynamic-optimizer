@@ -239,6 +239,20 @@ RT_PRIORITY_AUDIO=70      # DAWs, synths, plugins
 AUDIO_GREP_PATTERN="pulse|pipe|jack|audio|pianoteq|organteq|reaper|ardour|bitwig|cubase|logic|ableton|fl_studio|studio|daw|yoshimi|grandorgue|renoise|carla|jalv|qtractor|rosegarden|musescore|zynaddsubfx|qsynth|fluidsynth|bristol|hydrogen|drumgizmo|guitarix|rakarrack"
 
 # ============================================================================
+# LOGGING CONFIGURATION
+# ============================================================================
+#
+# Log levels control verbosity of output:
+#   DEBUG - All messages, including internal state (verbose)
+#   INFO  - Normal operation messages (default)
+#   WARN  - Warnings and errors only
+#   ERROR - Only critical errors
+#
+# Set via environment variable MOTU_LOG_LEVEL or in config file
+
+MOTU_LOG_LEVEL="${MOTU_LOG_LEVEL:-INFO}"
+
+# ============================================================================
 # VERSION INFO
 # ============================================================================
 

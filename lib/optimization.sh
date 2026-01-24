@@ -84,7 +84,7 @@
 #
 # DEPENDENCIES:
 #   - config.sh (CPU ranges, DEFAULT_GOVERNOR, IRQ_CPUS, ALL_CPUS)
-#   - logging.sh (log_message)
+#   - logging.sh (log_info, log_debug)
 #   - checks.sh (get_usb_irqs, get_audio_irqs, get_current_state, set_state)
 #   - process.sh (optimize_audio_process_affinity, reset_audio_process_affinity)
 #   - usb.sh (optimize_motu_usb_settings)
@@ -114,8 +114,8 @@
 #   4. USB device optimization (disable power management)
 #   5. Kernel parameter tuning (scheduler and memory settings)
 activate_audio_optimizations() {
-    log_message "🎵 MOTU M4 detected - Activating hybrid audio optimizations..."
-    log_message "🏗️  Strategy: P-Cores(0-7) Performance, Background E-Cores(8-13) Powersave, IRQ E-Cores(14-19) Performance"
+    log_info "🎵 MOTU M4 detected - Activating hybrid audio optimizations..."
+    log_info "🏗️  Strategy: P-Cores(0-7) Performance, Background E-Cores(8-13) Powersave, IRQ E-Cores(14-19) Performance"
 
     # Optimize P-Cores for audio processing (0-7)
     _optimize_p_cores
@@ -146,7 +146,7 @@ activate_audio_optimizations() {
 
     # Save state
     set_state "optimized"
-    log_message "✅ Hybrid audio optimizations activated - Stability and performance optimal!"
+    log_info "✅ Hybrid audio optimizations activated - Stability and performance optimal!"
 }
 
 # ============================================================================
@@ -160,7 +160,7 @@ activate_audio_optimizations() {
 # Reverts all optimizations to system defaults.
 # Requires root privileges.
 deactivate_audio_optimizations() {
-    log_message "🔧 MOTU M4 not detected - Reset to standard configuration..."
+    log_info "🔧 MOTU M4 not detected - Reset to standard configuration..."
 
     # Reset audio-relevant CPUs (P-Cores + IRQ E-Cores)
     _reset_cpu_governors
@@ -179,7 +179,7 @@ deactivate_audio_optimizations() {
 
     # Save state
     set_state "standard"
-    log_message "✅ Hybrid optimizations deactivated, system reset to standard"
+    log_info "✅ Hybrid optimizations deactivated, system reset to standard"
 }
 
 # ============================================================================
@@ -196,13 +196,13 @@ deactivate_audio_optimizations() {
 # Optimize P-Cores (0-7) for audio processing
 # Sets performance governor and locks frequency to maximum.
 _optimize_p_cores() {
-    log_message "🚀 Optimize P-Cores (0-7) for audio processing..."
+    log_info "🚀 Optimize P-Cores (0-7) for audio processing..."
 
     for cpu in {0..7}; do
         # Set governor to performance
         if [ -e "/sys/devices/system/cpu/cpu$cpu/cpufreq/scaling_governor" ]; then
             if echo performance > "/sys/devices/system/cpu/cpu$cpu/cpufreq/scaling_governor" 2>/dev/null; then
-                log_message "  P-Core CPU $cpu: Governor set to 'performance'"
+                log_debug "  P-Core CPU $cpu: Governor set to 'performance'"
             fi
         fi
 
@@ -212,7 +212,7 @@ _optimize_p_cores() {
             max_freq=$(cat "/sys/devices/system/cpu/cpu$cpu/cpufreq/scaling_max_freq" 2>/dev/null)
             if [ -n "$max_freq" ]; then
                 if echo "$max_freq" > "/sys/devices/system/cpu/cpu$cpu/cpufreq/scaling_min_freq" 2>/dev/null; then
-                    log_message "  P-Core CPU $cpu: Min-Frequency set to maximum"
+                    log_debug "  P-Core CPU $cpu: Min-Frequency set to maximum"
                 fi
             fi
         fi
@@ -223,7 +223,7 @@ _optimize_p_cores() {
 # Background E-Cores handle non-audio tasks. Keeping them on powersave
 # reduces power consumption and thermal interference with audio cores.
 _configure_background_e_cores() {
-    log_message "🔋 Keep Background E-Cores (8-13) on Powersave for stability..."
+    log_info "🔋 Keep Background E-Cores (8-13) on Powersave for stability..."
 
     for cpu in {8..13}; do
         if [ -e "/sys/devices/system/cpu/cpu$cpu/cpufreq/scaling_governor" ]; then
@@ -231,7 +231,7 @@ _configure_background_e_cores() {
             current_governor=$(cat "/sys/devices/system/cpu/cpu$cpu/cpufreq/scaling_governor")
             if [ "$current_governor" != "$DEFAULT_GOVERNOR" ]; then
                 if echo "$DEFAULT_GOVERNOR" > "/sys/devices/system/cpu/cpu$cpu/cpufreq/scaling_governor" 2>/dev/null; then
-                    log_message "  Background E-Core CPU $cpu: Governor set to '$DEFAULT_GOVERNOR'"
+                    log_debug "  Background E-Core CPU $cpu: Governor set to '$DEFAULT_GOVERNOR'"
                 fi
             fi
         fi
@@ -242,12 +242,12 @@ _configure_background_e_cores() {
 # IRQ handling requires consistent response time. Performance governor
 # ensures these cores respond quickly to USB/audio interrupts.
 _optimize_irq_e_cores() {
-    log_message "⚡ Optimize IRQ E-Cores (14-19) for stable latency..."
+    log_info "⚡ Optimize IRQ E-Cores (14-19) for stable latency..."
 
     for cpu in {14..19}; do
         if [ -e "/sys/devices/system/cpu/cpu$cpu/cpufreq/scaling_governor" ]; then
             if echo performance > "/sys/devices/system/cpu/cpu$cpu/cpufreq/scaling_governor" 2>/dev/null; then
-                log_message "  IRQ E-Core CPU $cpu: Governor set to 'performance'"
+                log_debug "  IRQ E-Core CPU $cpu: Governor set to 'performance'"
             fi
         fi
     done
@@ -255,7 +255,7 @@ _optimize_irq_e_cores() {
 
 # Reset CPU governors to default
 _reset_cpu_governors() {
-    log_message "🔋 Reset audio-relevant CPUs to standard governor..."
+    log_info "🔋 Reset audio-relevant CPUs to standard governor..."
 
     # Reset P-Cores and IRQ E-Cores
     for cpu in {0..7} {14..19}; do
@@ -264,7 +264,7 @@ _reset_cpu_governors() {
             current_governor=$(cat "/sys/devices/system/cpu/cpu$cpu/cpufreq/scaling_governor")
             if [ "$current_governor" = "performance" ]; then
                 if echo "$DEFAULT_GOVERNOR" > "/sys/devices/system/cpu/cpu$cpu/cpufreq/scaling_governor" 2>/dev/null; then
-                    log_message "  CPU $cpu: Governor reset to '$DEFAULT_GOVERNOR'"
+                    log_debug "  CPU $cpu: Governor reset to '$DEFAULT_GOVERNOR'"
                 fi
             fi
         fi
@@ -295,7 +295,7 @@ _reset_cpu_governors() {
 # Optimize USB controller IRQs
 # Pins all xHCI (USB 3.0) controller IRQs to the IRQ E-Cores.
 _optimize_usb_irqs() {
-    log_message "🎯 USB controller IRQs to E-Cores (14-19) for stable latency..."
+    log_info "🎯 USB controller IRQs to E-Cores (14-19) for stable latency..."
 
     local usb_irqs
     usb_irqs=$(get_usb_irqs)
@@ -303,7 +303,7 @@ _optimize_usb_irqs() {
     for irq in $usb_irqs; do
         if [ -e "/proc/irq/$irq/smp_affinity_list" ]; then
             if echo "$IRQ_CPUS" > "/proc/irq/$irq/smp_affinity_list" 2>/dev/null; then
-                log_message "  USB controller IRQ $irq set to E-Cores $IRQ_CPUS"
+                log_debug "  USB controller IRQ $irq set to E-Cores $IRQ_CPUS"
             fi
 
             # IRQ optimizations: Force threading
@@ -322,7 +322,7 @@ _optimize_usb_irqs() {
     for irq in 156 176; do
         if [ -e "/proc/irq/$irq/smp_affinity_list" ]; then
             if echo "$IRQ_CPUS" > "/proc/irq/$irq/smp_affinity_list" 2>/dev/null; then
-                log_message "  Fallback: IRQ $irq set to E-Cores $IRQ_CPUS"
+                log_debug "  Fallback: IRQ $irq set to E-Cores $IRQ_CPUS"
             fi
         fi
     done
@@ -331,7 +331,7 @@ _optimize_usb_irqs() {
 # Optimize audio-related IRQs
 # Pins sound card IRQs to the IRQ E-Cores for consistent handling.
 _optimize_audio_irqs() {
-    log_message "🔊 Audio IRQs to E-Cores (14-19) for optimal latency..."
+    log_info "🔊 Audio IRQs to E-Cores (14-19) for optimal latency..."
 
     local audio_irqs
     audio_irqs=$(get_audio_irqs)
@@ -342,7 +342,7 @@ _optimize_audio_irqs() {
             current_affinity=$(cat "/proc/irq/$irq/smp_affinity_list")
             if [ "$current_affinity" != "$IRQ_CPUS" ]; then
                 if echo "$IRQ_CPUS" > "/proc/irq/$irq/smp_affinity_list" 2>/dev/null; then
-                    log_message "  Audio IRQ $irq set to E-Cores $IRQ_CPUS (was: $current_affinity)"
+                    log_debug "  Audio IRQ $irq set to E-Cores $IRQ_CPUS (was: $current_affinity)"
                 fi
             fi
 
@@ -362,7 +362,7 @@ _reset_usb_irqs() {
     for irq in $usb_irqs; do
         if [ -e "/proc/irq/$irq/smp_affinity_list" ]; then
             if echo "$ALL_CPUS" > "/proc/irq/$irq/smp_affinity_list" 2>/dev/null; then
-                log_message "  USB controller IRQ $irq reset to all CPUs ($ALL_CPUS)"
+                log_debug "  USB controller IRQ $irq reset to all CPUs ($ALL_CPUS)"
             fi
 
             # Re-enable IRQ balancing
@@ -381,7 +381,7 @@ _reset_audio_irqs() {
     for irq in $audio_irqs; do
         if [ -e "/proc/irq/$irq/smp_affinity_list" ]; then
             if echo "$ALL_CPUS" > "/proc/irq/$irq/smp_affinity_list" 2>/dev/null; then
-                log_message "  Audio IRQ $irq reset to all CPUs ($ALL_CPUS)"
+                log_debug "  Audio IRQ $irq reset to all CPUs ($ALL_CPUS)"
             fi
 
             # Re-enable IRQ balancing

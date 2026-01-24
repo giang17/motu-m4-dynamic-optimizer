@@ -55,7 +55,7 @@
 #
 # DEPENDENCIES:
 #   - checks.sh (get_motu_usb_path)
-#   - logging.sh (log_message)
+#   - logging.sh (log_info, log_debug, log_warn)
 #
 # ============================================================================
 # MOTU M4 USB OPTIMIZATION
@@ -73,17 +73,17 @@
 #
 # Returns: 0 on success, 1 if device not found
 optimize_motu_usb_settings() {
-    log_message "🔌 Optimizing MOTU M4 USB settings..."
+    log_info "🔌 Optimizing MOTU M4 USB settings..."
 
     local motu_device_path
     motu_device_path=$(get_motu_usb_path)
 
     if [ -z "$motu_device_path" ]; then
-        log_message "  MOTU M4 USB device not found"
+        log_warn "  MOTU M4 USB device not found"
         return 1
     fi
 
-    log_message "  MOTU M4 USB device found: $motu_device_path"
+    log_debug "  MOTU M4 USB device found: $motu_device_path"
 
     # Disable power management for the MOTU M4
     _optimize_usb_power "$motu_device_path"
@@ -118,7 +118,7 @@ _optimize_usb_power() {
     # "on" means device is always active, "auto" allows power management
     if [ -e "$usb_device/power/control" ]; then
         if echo "on" > "$usb_device/power/control" 2>/dev/null; then
-            log_message "    Power-Management: always on"
+            log_debug "    Power-Management: always on"
         fi
     fi
 
@@ -126,7 +126,7 @@ _optimize_usb_power() {
     # -1 = never autosuspend
     if [ -e "$usb_device/power/autosuspend" ]; then
         if echo -1 > "$usb_device/power/autosuspend" 2>/dev/null; then
-            log_message "    Autosuspend: disabled"
+            log_debug "    Autosuspend: disabled"
         fi
     fi
 
@@ -134,7 +134,7 @@ _optimize_usb_power() {
     # -1 = never autosuspend
     if [ -e "$usb_device/power/autosuspend_delay_ms" ]; then
         if echo -1 > "$usb_device/power/autosuspend_delay_ms" 2>/dev/null; then
-            log_message "    Autosuspend-Delay: disabled"
+            log_debug "    Autosuspend-Delay: disabled"
         fi
     fi
 
@@ -142,7 +142,7 @@ _optimize_usb_power() {
     if [ -e "$usb_device/power/runtime_status" ]; then
         local runtime_status
         runtime_status=$(cat "$usb_device/power/runtime_status" 2>/dev/null)
-        log_message "    Runtime status: $runtime_status"
+        log_debug "    Runtime status: $runtime_status"
     fi
 }
 
@@ -168,9 +168,9 @@ _optimize_usb_transfer() {
     # Default is typically 2-4, increasing to 32 provides more buffering
     if [ -e "$usb_device/urbnum" ]; then
         if echo 32 > "$usb_device/urbnum" 2>/dev/null; then
-            log_message "    URB count increased to 32"
+            log_debug "    URB count increased to 32"
         else
-            log_message "    URB optimization: No permission (normal)"
+            log_debug "    URB optimization: No permission (normal)"
         fi
     fi
 }
@@ -259,7 +259,7 @@ optimize_usb_memory() {
     # Default is typically 16MB, 256MB provides headroom for high-bandwidth audio
     if [ -e /sys/module/usbcore/parameters/usbfs_memory_mb ]; then
         if echo 256 > /sys/module/usbcore/parameters/usbfs_memory_mb 2>/dev/null; then
-            log_message "  USB-Memory-Buffer: 256MB"
+            log_debug "  USB-Memory-Buffer: 256MB"
             return 0
         fi
     fi

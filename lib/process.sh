@@ -87,7 +87,7 @@
 # DEPENDENCIES:
 #   - config.sh (AUDIO_MAIN_CPUS, DAW_CPUS, BACKGROUND_CPUS, ALL_CPUS,
 #                RT_PRIORITY_*, AUDIO_PROCESSES)
-#   - logging.sh (log_message)
+#   - logging.sh (log_info, log_debug)
 #
 # ============================================================================
 # PROCESS AFFINITY OPTIMIZATION
@@ -111,7 +111,7 @@
 #   - JACK/PipeWire: CPUs 6-7, priority 99/85 (audio server)
 #   - DAWs/synths: CPUs 0-5, priority 70 (audio applications)
 optimize_audio_process_affinity() {
-    log_message "🎯 Set audio process affinity to optimal P-Cores..."
+    log_info "🎯 Set audio process affinity to optimal P-Cores..."
 
     # JACK processes to dedicated P-Cores (6-7)
     for pid in $(pgrep -x "jackd" 2>/dev/null); do
@@ -178,7 +178,7 @@ _optimize_audio_applications() {
 # Reset audio process affinity to all CPUs
 # Reverts all audio process optimizations to system defaults.
 reset_audio_process_affinity() {
-    log_message "🔄 Reset audio process affinity..."
+    log_info "🔄 Reset audio process affinity..."
 
     # Reset all audio processes to all CPUs using unified list
     for process in "${AUDIO_PROCESSES[@]}"; do
@@ -188,7 +188,7 @@ reset_audio_process_affinity() {
                 taskset -cp "$ALL_CPUS" "$pid" 2>/dev/null
                 result=$?
                 if [ $result -eq 0 ]; then
-                    log_message "  Process $process ($pid) reset to all CPUs ($ALL_CPUS)"
+                    log_debug "  Process $process ($pid) reset to all CPUs ($ALL_CPUS)"
                 fi
             fi
 
@@ -225,7 +225,7 @@ _set_process_affinity() {
     fi
 
     if taskset -cp "$cpus" "$pid" 2>/dev/null; then
-        log_message "  $name process $pid pinned to P-Cores $cpus"
+        log_debug "  $name process $pid pinned to P-Cores $cpus"
         return 0
     fi
 
@@ -253,7 +253,7 @@ _set_process_rt_priority() {
     fi
 
     if chrt -f -p "$priority" "$pid" 2>/dev/null; then
-        log_message "  $name process $pid set to real-time priority $priority"
+        log_debug "  $name process $pid set to real-time priority $priority"
         return 0
     fi
 
@@ -306,21 +306,21 @@ optimize_script_performance() {
     # Pin script to Background E-Cores (8-13)
     if command -v taskset &> /dev/null; then
         if taskset -cp "$BACKGROUND_CPUS" "$script_pid" 2>/dev/null; then
-            log_message "📌 Script itself pinned to Background E-Cores $BACKGROUND_CPUS"
+            log_debug "📌 Script itself pinned to Background E-Cores $BACKGROUND_CPUS"
         fi
     fi
 
     # Set low priority for the script
     if command -v chrt &> /dev/null; then
         if chrt -o -p 0 "$script_pid" 2>/dev/null; then
-            log_message "⬇️  Script priority set to low"
+            log_debug "⬇️  Script priority set to low"
         fi
     fi
 
     # Reduce I/O priority
     if command -v ionice &> /dev/null; then
         if ionice -c 3 -p "$script_pid" 2>/dev/null; then
-            log_message "💽 Script I/O priority set to idle"
+            log_debug "💽 Script I/O priority set to idle"
         fi
     fi
 }

@@ -87,7 +87,7 @@
 # DEPENDENCIES:
 #   - config.sh (MOTU_CARD_ID, MOTU_VENDOR_ID, MOTU_PRODUCT_ID,
 #                AUDIO_PROCESSES, AUDIO_GREP_PATTERN, STATE_FILE)
-#   - logging.sh (log_silent)
+#   - logging.sh (log_debug)
 #
 # ============================================================================
 # CPU ISOLATION CHECK
@@ -117,9 +117,9 @@ check_cpu_isolation() {
         kernel_isolation=$(grep -o "isolcpus=[0-9,-]*" /proc/cmdline | cut -d= -f2)
     fi
 
-    log_silent "📊 CPU-Isolation Status:"
-    log_silent "  Sys-Isolation: '$isolated_cpus'"
-    log_silent "  Kernel-Param: '$kernel_isolation'"
+    log_debug "📊 CPU-Isolation Status:"
+    log_debug "  Sys-Isolation: '$isolated_cpus'"
+    log_debug "  Kernel-Param: '$kernel_isolation'"
 
     echo "$isolated_cpus|$kernel_isolation"
 }

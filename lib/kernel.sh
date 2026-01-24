@@ -91,7 +91,7 @@
 #   hpet/max-user-freq:       2048 -> 64
 #
 # DEPENDENCIES:
-#   - logging.sh (log_message)
+#   - logging.sh (log_info, log_debug)
 #
 # ============================================================================
 # KERNEL PARAMETER OPTIMIZATION
@@ -109,14 +109,14 @@
 # Applies all audio-optimized kernel parameter settings.
 # Requires root privileges.
 optimize_kernel_parameters() {
-    log_message "⚙️  Optimize kernel parameters for audio..."
+    log_info "⚙️  Optimize kernel parameters for audio..."
 
     # Real-Time Scheduling - Allow unlimited RT scheduling
     # Default: 950000 (95% of period). -1 = no limit on RT task CPU time
     # Warning: Poorly written RT tasks could hang the system with -1
     if [ -e /proc/sys/kernel/sched_rt_runtime_us ]; then
         if echo -1 > /proc/sys/kernel/sched_rt_runtime_us 2>/dev/null; then
-            log_message "  RT-Runtime: Unlimited"
+            log_debug "  RT-Runtime: Unlimited"
         fi
     fi
 
@@ -125,7 +125,7 @@ optimize_kernel_parameters() {
     # 10 = only swap when absolutely necessary
     if [ -e /proc/sys/vm/swappiness ]; then
         if echo 10 > /proc/sys/vm/swappiness 2>/dev/null; then
-            log_message "  Swappiness: 10"
+            log_debug "  Swappiness: 10"
         fi
     fi
 
@@ -134,7 +134,7 @@ optimize_kernel_parameters() {
     # 1ms is aggressive but good for audio
     if [ -e /proc/sys/kernel/sched_latency_ns ]; then
         if echo 1000000 > /proc/sys/kernel/sched_latency_ns 2>/dev/null; then
-            log_message "  Scheduler latency: 1ms"
+            log_debug "  Scheduler latency: 1ms"
         fi
     fi
 
@@ -143,7 +143,7 @@ optimize_kernel_parameters() {
     # 0.1ms allows very fine-grained scheduling
     if [ -e /proc/sys/kernel/sched_min_granularity_ns ]; then
         if echo 100000 > /proc/sys/kernel/sched_min_granularity_ns 2>/dev/null; then
-            log_message "  Min granularity: 0.1ms"
+            log_debug "  Min granularity: 0.1ms"
         fi
     fi
 
@@ -152,7 +152,7 @@ optimize_kernel_parameters() {
     # 0.1ms ensures audio callbacks get CPU quickly
     if [ -e /proc/sys/kernel/sched_wakeup_granularity_ns ]; then
         if echo 100000 > /proc/sys/kernel/sched_wakeup_granularity_ns 2>/dev/null; then
-            log_message "  Wakeup granularity: 0.1ms"
+            log_debug "  Wakeup granularity: 0.1ms"
         fi
     fi
 }
@@ -168,40 +168,40 @@ optimize_kernel_parameters() {
 # Reverts all audio optimizations to system defaults.
 # Requires root privileges.
 reset_kernel_parameters() {
-    log_message "⚙️  Reset kernel parameters..."
+    log_info "⚙️  Reset kernel parameters..."
 
     # RT-Scheduling-Limit: Standard (95% of period for RT tasks)
     if [ -e /proc/sys/kernel/sched_rt_runtime_us ]; then
         if echo 950000 > /proc/sys/kernel/sched_rt_runtime_us 2>/dev/null; then
-            log_message "  RT-Runtime: Standard (950ms)"
+            log_debug "  RT-Runtime: Standard (950ms)"
         fi
     fi
 
     # Swappiness: Standard
     if [ -e /proc/sys/vm/swappiness ]; then
         if echo 60 > /proc/sys/vm/swappiness 2>/dev/null; then
-            log_message "  Swappiness: Standard (60)"
+            log_debug "  Swappiness: Standard (60)"
         fi
     fi
 
     # Scheduler latency: Standard
     if [ -e /proc/sys/kernel/sched_latency_ns ]; then
         if echo 6000000 > /proc/sys/kernel/sched_latency_ns 2>/dev/null; then
-            log_message "  Scheduler latency: Standard (6ms)"
+            log_debug "  Scheduler latency: Standard (6ms)"
         fi
     fi
 
     # Min granularity: Standard
     if [ -e /proc/sys/kernel/sched_min_granularity_ns ]; then
         if echo 750000 > /proc/sys/kernel/sched_min_granularity_ns 2>/dev/null; then
-            log_message "  Min granularity: Standard (0.75ms)"
+            log_debug "  Min granularity: Standard (0.75ms)"
         fi
     fi
 
     # Wakeup granularity: Standard
     if [ -e /proc/sys/kernel/sched_wakeup_granularity_ns ]; then
         if echo 1000000 > /proc/sys/kernel/sched_wakeup_granularity_ns 2>/dev/null; then
-            log_message "  Wakeup granularity: Standard (1ms)"
+            log_debug "  Wakeup granularity: Standard (1ms)"
         fi
     fi
 }
@@ -219,13 +219,13 @@ reset_kernel_parameters() {
 # Applies supplementary optimizations for better audio performance.
 # Requires root privileges.
 optimize_advanced_audio_settings() {
-    log_message "🎼 Activating advanced audio optimizations..."
+    log_info "🎼 Activating advanced audio optimizations..."
 
     # USB-Bulk-Transfer-Optimizations - Increase USB buffer
     # Default: 16MB. 256MB provides headroom for high-bandwidth USB audio
     if [ -e /sys/module/usbcore/parameters/usbfs_memory_mb ]; then
         if echo 256 > /sys/module/usbcore/parameters/usbfs_memory_mb 2>/dev/null; then
-            log_message "  USB-Memory-Buffer: 256MB"
+            log_debug "  USB-Memory-Buffer: 256MB"
         fi
     fi
 
@@ -234,7 +234,7 @@ optimize_advanced_audio_settings() {
     # Default: 64Hz. 2048Hz allows more precise scheduling
     if [ -e /proc/sys/dev/hpet/max-user-freq ]; then
         if echo 2048 > /proc/sys/dev/hpet/max-user-freq 2>/dev/null; then
-            log_message "  HPET-Frequency: 2048Hz"
+            log_debug "  HPET-Frequency: 2048Hz"
         fi
     fi
 
@@ -255,7 +255,7 @@ _optimize_network_rps() {
             echo "00003f00" > "$netif" 2>/dev/null
         fi
     done
-    log_message "  Network-Interrupts redirected to Background-E-Cores"
+    log_debug "  Network-Interrupts redirected to Background-E-Cores"
 }
 
 # ============================================================================

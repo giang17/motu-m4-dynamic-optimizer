@@ -226,10 +226,10 @@ case "${1:-monitor}" in
     "once"|"run")
         motu_connected=$(check_motu_m4)
         if [ "$motu_connected" = "true" ]; then
-            log_message "🎵 One-time activation of Hybrid Audio Optimizations"
+            log_info "🎵 One-time activation of Hybrid Audio Optimizations"
             activate_audio_optimizations
         else
-            log_message "🔧 MOTU M4 not detected - Deactivating optimizations"
+            log_info "🔧 MOTU M4 not detected - Deactivating optimizations"
             deactivate_audio_optimizations
         fi
         ;;
@@ -243,7 +243,7 @@ case "${1:-monitor}" in
         show_detailed_status
         ;;
     "stop"|"reset")
-        log_message "🛑 Manual reset requested"
+        log_info "🛑 Manual reset requested"
         deactivate_audio_optimizations
         ;;
     "help"|"-h"|"--help")

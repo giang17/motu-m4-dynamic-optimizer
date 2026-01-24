@@ -125,3 +125,17 @@
 #
 # LOG_FILE="/var/log/motu-m4-optimizer.log"
 # STATE_FILE="/var/run/motu-m4-state"
+
+# ============================================================================
+# LOGGING CONFIGURATION
+# ============================================================================
+#
+# Log levels control verbosity of output:
+#   DEBUG - All messages, including internal state (verbose)
+#   INFO  - Normal operation messages (default)
+#   WARN  - Warnings and errors only
+#   ERROR - Only critical errors
+#
+# Set to control how much detail is logged.
+
+# MOTU_LOG_LEVEL="INFO"
