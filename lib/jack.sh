@@ -99,7 +99,7 @@ get_jack_settings() {
     if pgrep -x "jackd" > /dev/null 2>&1 || pgrep -x "jackdbus" > /dev/null 2>&1; then
         # JACK process running, but also check M4 availability
         local motu_available="false"
-        if ls /proc/asound/*/id 2>/dev/null | xargs cat 2>/dev/null | grep -q M4; then
+        if grep -q M4 /proc/asound/*/id 2>/dev/null; then
             motu_available="true"
         fi
 

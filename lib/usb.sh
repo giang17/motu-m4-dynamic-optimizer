@@ -117,8 +117,7 @@ _optimize_usb_power() {
     # Disable USB autosuspend - keep device always on
     # "on" means device is always active, "auto" allows power management
     if [ -e "$usb_device/power/control" ]; then
-        echo "on" > "$usb_device/power/control" 2>/dev/null
-        if [ $? -eq 0 ]; then
+        if echo "on" > "$usb_device/power/control" 2>/dev/null; then
             log_message "    Power-Management: always on"
         fi
     fi
@@ -126,8 +125,7 @@ _optimize_usb_power() {
     # Disable autosuspend delay (legacy interface)
     # -1 = never autosuspend
     if [ -e "$usb_device/power/autosuspend" ]; then
-        echo -1 > "$usb_device/power/autosuspend" 2>/dev/null
-        if [ $? -eq 0 ]; then
+        if echo -1 > "$usb_device/power/autosuspend" 2>/dev/null; then
             log_message "    Autosuspend: disabled"
         fi
     fi
@@ -135,8 +133,7 @@ _optimize_usb_power() {
     # Disable autosuspend delay (ms version - newer kernels)
     # -1 = never autosuspend
     if [ -e "$usb_device/power/autosuspend_delay_ms" ]; then
-        echo -1 > "$usb_device/power/autosuspend_delay_ms" 2>/dev/null
-        if [ $? -eq 0 ]; then
+        if echo -1 > "$usb_device/power/autosuspend_delay_ms" 2>/dev/null; then
             log_message "    Autosuspend-Delay: disabled"
         fi
     fi
@@ -170,8 +167,7 @@ _optimize_usb_transfer() {
     # Increase URB count for better buffer handling
     # Default is typically 2-4, increasing to 32 provides more buffering
     if [ -e "$usb_device/urbnum" ]; then
-        echo 32 > "$usb_device/urbnum" 2>/dev/null
-        if [ $? -eq 0 ]; then
+        if echo 32 > "$usb_device/urbnum" 2>/dev/null; then
             log_message "    URB count increased to 32"
         else
             log_message "    URB optimization: No permission (normal)"
@@ -262,8 +258,7 @@ optimize_usb_memory() {
     # Increase USB filesystem memory buffer
     # Default is typically 16MB, 256MB provides headroom for high-bandwidth audio
     if [ -e /sys/module/usbcore/parameters/usbfs_memory_mb ]; then
-        echo 256 > /sys/module/usbcore/parameters/usbfs_memory_mb 2>/dev/null
-        if [ $? -eq 0 ]; then
+        if echo 256 > /sys/module/usbcore/parameters/usbfs_memory_mb 2>/dev/null; then
             log_message "  USB-Memory-Buffer: 256MB"
             return 0
         fi

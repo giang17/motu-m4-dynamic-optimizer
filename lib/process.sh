@@ -335,8 +335,6 @@ optimize_script_performance() {
 # Displays CPU affinity and priority for each audio process found.
 # Output: Formatted list to stdout
 list_audio_processes() {
-    local output=""
-
     # Build pattern from AUDIO_PROCESSES array
     local audio_pattern=""
     for process in "${AUDIO_PROCESSES[@]}"; do

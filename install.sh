@@ -511,7 +511,8 @@ do_status() {
 
     # Check library directory
     if [ -d "$INSTALL_LIB" ]; then
-        local module_count=$(ls -1 "${INSTALL_LIB}/"*.sh 2>/dev/null | wc -l)
+        local module_count
+        module_count=$(ls -1 "${INSTALL_LIB}/"*.sh 2>/dev/null | wc -l)
         print_success "Library installed: $INSTALL_LIB ($module_count modules)"
     else
         print_error "Library NOT installed"
@@ -543,7 +544,8 @@ do_status() {
 
     # Check log file
     if [ -f "$LOG_FILE" ]; then
-        local log_size=$(du -h "$LOG_FILE" | cut -f1)
+        local log_size
+        log_size=$(du -h "$LOG_FILE" | cut -f1)
         print_success "Log file exists: $LOG_FILE ($log_size)"
     else
         print_info "Log file not created yet"

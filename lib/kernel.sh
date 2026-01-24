@@ -115,9 +115,7 @@ optimize_kernel_parameters() {
     # Default: 950000 (95% of period). -1 = no limit on RT task CPU time
     # Warning: Poorly written RT tasks could hang the system with -1
     if [ -e /proc/sys/kernel/sched_rt_runtime_us ]; then
-        echo -1 > /proc/sys/kernel/sched_rt_runtime_us 2>/dev/null
-        result=$?
-        if [ $result -eq 0 ]; then
+        if echo -1 > /proc/sys/kernel/sched_rt_runtime_us 2>/dev/null; then
             log_message "  RT-Runtime: Unlimited"
         fi
     fi
@@ -126,9 +124,7 @@ optimize_kernel_parameters() {
     # Default: 60. Lower values = less swapping, more RAM pressure
     # 10 = only swap when absolutely necessary
     if [ -e /proc/sys/vm/swappiness ]; then
-        echo 10 > /proc/sys/vm/swappiness 2>/dev/null
-        result=$?
-        if [ $result -eq 0 ]; then
+        if echo 10 > /proc/sys/vm/swappiness 2>/dev/null; then
             log_message "  Swappiness: 10"
         fi
     fi
@@ -137,9 +133,7 @@ optimize_kernel_parameters() {
     # Default: 6ms. Lower = more frequent scheduling, better latency
     # 1ms is aggressive but good for audio
     if [ -e /proc/sys/kernel/sched_latency_ns ]; then
-        echo 1000000 > /proc/sys/kernel/sched_latency_ns 2>/dev/null
-        result=$?
-        if [ $result -eq 0 ]; then
+        if echo 1000000 > /proc/sys/kernel/sched_latency_ns 2>/dev/null; then
             log_message "  Scheduler latency: 1ms"
         fi
     fi
@@ -148,9 +142,7 @@ optimize_kernel_parameters() {
     # Default: 0.75ms. Lower = more preemption opportunities
     # 0.1ms allows very fine-grained scheduling
     if [ -e /proc/sys/kernel/sched_min_granularity_ns ]; then
-        echo 100000 > /proc/sys/kernel/sched_min_granularity_ns 2>/dev/null
-        result=$?
-        if [ $result -eq 0 ]; then
+        if echo 100000 > /proc/sys/kernel/sched_min_granularity_ns 2>/dev/null; then
             log_message "  Min granularity: 0.1ms"
         fi
     fi
@@ -159,9 +151,7 @@ optimize_kernel_parameters() {
     # Default: 1ms. Lower = faster response to events
     # 0.1ms ensures audio callbacks get CPU quickly
     if [ -e /proc/sys/kernel/sched_wakeup_granularity_ns ]; then
-        echo 100000 > /proc/sys/kernel/sched_wakeup_granularity_ns 2>/dev/null
-        result=$?
-        if [ $result -eq 0 ]; then
+        if echo 100000 > /proc/sys/kernel/sched_wakeup_granularity_ns 2>/dev/null; then
             log_message "  Wakeup granularity: 0.1ms"
         fi
     fi
@@ -182,45 +172,35 @@ reset_kernel_parameters() {
 
     # RT-Scheduling-Limit: Standard (95% of period for RT tasks)
     if [ -e /proc/sys/kernel/sched_rt_runtime_us ]; then
-        echo 950000 > /proc/sys/kernel/sched_rt_runtime_us 2>/dev/null
-        result=$?
-        if [ $result -eq 0 ]; then
+        if echo 950000 > /proc/sys/kernel/sched_rt_runtime_us 2>/dev/null; then
             log_message "  RT-Runtime: Standard (950ms)"
         fi
     fi
 
     # Swappiness: Standard
     if [ -e /proc/sys/vm/swappiness ]; then
-        echo 60 > /proc/sys/vm/swappiness 2>/dev/null
-        result=$?
-        if [ $result -eq 0 ]; then
+        if echo 60 > /proc/sys/vm/swappiness 2>/dev/null; then
             log_message "  Swappiness: Standard (60)"
         fi
     fi
 
     # Scheduler latency: Standard
     if [ -e /proc/sys/kernel/sched_latency_ns ]; then
-        echo 6000000 > /proc/sys/kernel/sched_latency_ns 2>/dev/null
-        result=$?
-        if [ $result -eq 0 ]; then
+        if echo 6000000 > /proc/sys/kernel/sched_latency_ns 2>/dev/null; then
             log_message "  Scheduler latency: Standard (6ms)"
         fi
     fi
 
     # Min granularity: Standard
     if [ -e /proc/sys/kernel/sched_min_granularity_ns ]; then
-        echo 750000 > /proc/sys/kernel/sched_min_granularity_ns 2>/dev/null
-        result=$?
-        if [ $result -eq 0 ]; then
+        if echo 750000 > /proc/sys/kernel/sched_min_granularity_ns 2>/dev/null; then
             log_message "  Min granularity: Standard (0.75ms)"
         fi
     fi
 
     # Wakeup granularity: Standard
     if [ -e /proc/sys/kernel/sched_wakeup_granularity_ns ]; then
-        echo 1000000 > /proc/sys/kernel/sched_wakeup_granularity_ns 2>/dev/null
-        result=$?
-        if [ $result -eq 0 ]; then
+        if echo 1000000 > /proc/sys/kernel/sched_wakeup_granularity_ns 2>/dev/null; then
             log_message "  Wakeup granularity: Standard (1ms)"
         fi
     fi
@@ -244,9 +224,7 @@ optimize_advanced_audio_settings() {
     # USB-Bulk-Transfer-Optimizations - Increase USB buffer
     # Default: 16MB. 256MB provides headroom for high-bandwidth USB audio
     if [ -e /sys/module/usbcore/parameters/usbfs_memory_mb ]; then
-        echo 256 > /sys/module/usbcore/parameters/usbfs_memory_mb 2>/dev/null
-        result=$?
-        if [ $result -eq 0 ]; then
+        if echo 256 > /sys/module/usbcore/parameters/usbfs_memory_mb 2>/dev/null; then
             log_message "  USB-Memory-Buffer: 256MB"
         fi
     fi
@@ -255,9 +233,7 @@ optimize_advanced_audio_settings() {
     # HPET (High Precision Event Timer) is used for accurate audio timing
     # Default: 64Hz. 2048Hz allows more precise scheduling
     if [ -e /proc/sys/dev/hpet/max-user-freq ]; then
-        echo 2048 > /proc/sys/dev/hpet/max-user-freq 2>/dev/null
-        result=$?
-        if [ $result -eq 0 ]; then
+        if echo 2048 > /proc/sys/dev/hpet/max-user-freq 2>/dev/null; then
             log_message "  HPET-Frequency: 2048Hz"
         fi
     fi

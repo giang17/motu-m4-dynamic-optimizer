@@ -62,6 +62,7 @@
 # FILE PATHS
 # ============================================================================
 
+# shellcheck disable=SC2034  # Variables are used by other sourced modules
 LOG_FILE="/var/log/motu-m4-optimizer.log"
 STATE_FILE="/var/run/motu-m4-state"
 

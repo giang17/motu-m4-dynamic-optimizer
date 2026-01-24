@@ -46,7 +46,8 @@
 # Example:
 #   log_message "Starting optimization..."
 log_message() {
-    local message="$(date '+%Y-%m-%d %H:%M:%S') - $1"
+    local message
+    message="$(date '+%Y-%m-%d %H:%M:%S') - $1"
 
     # Try to write to system log (suppress errors completely)
     if [ -w "$LOG_FILE" ] 2>/dev/null && echo "$message" >> "$LOG_FILE" 2>/dev/null; then
@@ -84,7 +85,8 @@ log_message() {
 # Example:
 #   log_silent "Debug: CPU isolation check completed"
 log_silent() {
-    local message="$(date '+%Y-%m-%d %H:%M:%S') - $1"
+    local message
+    message="$(date '+%Y-%m-%d %H:%M:%S') - $1"
 
     if [ -w "$LOG_FILE" ] 2>/dev/null; then
         echo "$message" >> "$LOG_FILE" 2>/dev/null
