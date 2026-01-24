@@ -2,7 +2,106 @@
 
 # MOTU M4 Dynamic Optimizer - Status Module
 # Contains status display and monitoring functions
-
+#
+# ============================================================================
+# MODULE API REFERENCE
+# ============================================================================
+#
+# PUBLIC FUNCTIONS:
+#
+#   show_status()
+#     Displays standard status overview.
+#     @return : void
+#     @stdout : Formatted status report including MOTU, JACK, CPU, IRQ,
+#               process info, USB power, kernel params, and recommendations
+#
+#   show_detailed_status()
+#     Displays comprehensive troubleshooting information.
+#     @return : void
+#     @stdout : Extended status with hardware details, IRQ analysis,
+#               xrun statistics, and recommended actions
+#
+# PRIVATE HELPER FUNCTIONS:
+#
+#   JACK Status:
+#     _show_jack_status()
+#       @stdout : JACK server status and settings
+#
+#   MOTU Details:
+#     _show_motu_details()
+#       @stdout : ALSA card info and USB device status
+#     _show_motu_hardware_details()
+#       @stdout : Detailed hardware info for troubleshooting
+#     _show_usb_connection_details()
+#       @stdout : USB connection and power status
+#
+#   CPU Status:
+#     _show_cpu_governor_status(state)
+#       @param  state : string - "optimized" or "standard"
+#       @stdout       : Governor status for all CPUs grouped by role
+#     _show_cpu_info(cpu, show_role)
+#       @param  cpu       : int - CPU number
+#       @param  show_role : string - "with_role" to show BG/IRQ labels
+#       @stdout           : Single CPU governor and frequency
+#     _show_cpu_details()
+#       @stdout : Detailed per-core CPU information
+#
+#   IRQ Status:
+#     _show_usb_irq_status()
+#       @stdout : xHCI controller IRQ assignments
+#     _show_audio_irq_status()
+#       @stdout : Audio device IRQ assignments
+#     _show_complete_irq_analysis()
+#       @stdout : Full IRQ analysis with spurious counts
+#
+#   Audio Processes:
+#     _show_audio_process_details()
+#       @stdout : Audio processes with RT scheduling info
+#
+#   Optimization Summary:
+#     _show_optimization_summary()
+#       @stdout : IRQ/process optimization counts and xrun status
+#     _show_xrun_performance_summary()
+#       @stdout : Audio performance assessment with recommendations
+#     _show_buffer_recommendation(jack_status, bufsize)
+#       @param  jack_status : string - JACK status
+#       @param  bufsize     : int|string - Buffer size
+#       @stdout             : Buffer recommendations for mild issues
+#     _show_severe_buffer_recommendation(jack_status, bufsize, samplerate)
+#       @param  jack_status : string - JACK status
+#       @param  bufsize     : int|string - Buffer size
+#       @param  samplerate  : int|string - Sample rate
+#       @stdout             : Buffer recommendations for severe issues
+#     _show_dynamic_buffer_recommendations(jack_status, bufsize, samplerate, nperiods, xruns)
+#       @param  jack_status : string - JACK status
+#       @param  bufsize     : int|string - Buffer size
+#       @param  samplerate  : int|string - Sample rate
+#       @param  nperiods    : int|string - Number of periods
+#       @param  xruns       : int - Total xrun count
+#       @stdout             : Context-aware buffer and latency recommendations
+#
+#   Detailed Status:
+#     _show_optimization_success_summary()
+#       @stdout : Optimization success indicators
+#     _show_recommended_next_steps()
+#       @stdout : Action items based on current state
+#     _show_detailed_xrun_statistics()
+#       @stdout : Comprehensive xrun analysis with recommendations
+#
+# DEPENDENCIES:
+#   - config.sh (OPTIMIZER_NAME, OPTIMIZER_VERSION, DEFAULT_GOVERNOR,
+#                IRQ_CPUS, AUDIO_GREP_PATTERN)
+#   - checks.sh (check_motu_m4, get_motu_card_info, check_cpu_isolation,
+#                get_current_state, count_rt_audio_processes)
+#   - jack.sh (get_jack_settings, calculate_latency_ms,
+#              get_dynamic_xrun_recommendations)
+#   - usb.sh (get_motu_usb_power_status, get_motu_usb_details)
+#   - kernel.sh (show_kernel_status, show_advanced_kernel_status)
+#   - process.sh (list_audio_processes, get_script_performance_info)
+#   - optimization.sh (count_optimized_usb_irqs, count_optimized_audio_irqs)
+#   - xrun.sh (get_xrun_stats, get_system_xruns, get_live_jack_xruns,
+#              get_xrun_severity)
+#
 # ============================================================================
 # MAIN STATUS DISPLAY
 # ============================================================================

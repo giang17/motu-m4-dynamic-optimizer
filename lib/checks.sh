@@ -2,7 +2,93 @@
 
 # MOTU M4 Dynamic Optimizer - System Checks Module
 # Provides functions for detecting hardware and system state
-
+#
+# ============================================================================
+# MODULE API REFERENCE
+# ============================================================================
+#
+# PUBLIC FUNCTIONS:
+#
+#   check_cpu_isolation()
+#     Checks CPU isolation status from kernel and runtime.
+#     @return : string - "sys_isolated|kernel_param" (pipe-separated)
+#     @stdout : Isolation status string
+#
+#   check_motu_m4()
+#     Detects if MOTU M4 audio interface is connected.
+#     @return : string - "true" or "false"
+#     @stdout : Detection result as string
+#
+#   get_motu_card_info()
+#     Gets ALSA card directory name for MOTU M4.
+#     @return : string - Card name (e.g., "card1") or empty
+#     @stdout : ALSA card identifier
+#
+#   get_motu_usb_path()
+#     Finds sysfs path for MOTU M4 USB device.
+#     @return : string - Full sysfs path or empty
+#     @exit   : 0 if found, 1 if not found
+#     @stdout : USB device path
+#
+#   is_jack_running()
+#     Checks if JACK audio server is running.
+#     @exit   : 0 if running, 1 if not
+#
+#   is_pipewire_running()
+#     Checks if PipeWire is running.
+#     @exit   : 0 if running, 1 if not
+#
+#   is_qjackctl_running()
+#     Checks if QJackCtl GUI is running.
+#     @exit   : 0 if running, 1 if not
+#
+#   get_original_user()
+#     Gets username when running via sudo.
+#     @return : string - Username or empty
+#     @stdout : Original username
+#
+#   get_usb_irqs()
+#     Gets IRQ numbers for USB (xHCI) controllers.
+#     @return : string - Space-separated IRQ numbers
+#     @stdout : IRQ list
+#
+#   get_audio_irqs()
+#     Gets IRQ numbers for audio devices.
+#     @return : string - Space-separated IRQ numbers
+#     @stdout : IRQ list
+#
+#   get_irq_affinity(irq)
+#     Gets CPU affinity for an IRQ.
+#     @param  irq : int - IRQ number
+#     @return     : string - CPU list (e.g., "14-19") or "N/A"
+#     @stdout     : Affinity string
+#
+#   count_audio_processes()
+#     Counts running audio processes.
+#     @return : int - Process count
+#     @stdout : Count as string
+#
+#   count_rt_audio_processes()
+#     Counts audio processes with RT scheduling.
+#     @return : int - RT process count
+#     @stdout : Count as string
+#
+#   get_current_state()
+#     Gets current optimization state.
+#     @return : string - "optimized", "standard", or "unknown"
+#     @stdout : State string
+#
+#   set_state(state)
+#     Sets optimization state.
+#     @param  state : string - "optimized" or "standard"
+#     @return       : void
+#     @file         : Writes to STATE_FILE
+#
+# DEPENDENCIES:
+#   - config.sh (MOTU_CARD_ID, MOTU_VENDOR_ID, MOTU_PRODUCT_ID,
+#                AUDIO_PROCESSES, AUDIO_GREP_PATTERN, STATE_FILE)
+#   - logging.sh (log_silent)
+#
 # ============================================================================
 # CPU ISOLATION CHECK
 # ============================================================================

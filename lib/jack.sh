@@ -2,7 +2,64 @@
 
 # MOTU M4 Dynamic Optimizer - JACK Module
 # Contains JACK-related functions for settings retrieval and recommendations
-
+#
+# ============================================================================
+# MODULE API REFERENCE
+# ============================================================================
+#
+# PUBLIC FUNCTIONS:
+#
+#   get_jack_settings()
+#     Queries JACK server for current configuration.
+#     @return : string - "status|bufsize|samplerate|nperiods"
+#     @stdout : Pipe-separated settings string
+#     @note   : Handles both JACK and PipeWire-JACK
+#
+#   calculate_latency_ms(bufsize, samplerate)
+#     Calculates audio latency from buffer settings.
+#     @param  bufsize    : int|string - Buffer size in samples or "unknown"
+#     @param  samplerate : int|string - Sample rate in Hz or "unknown"
+#     @return            : string - Latency in ms (e.g., "5.3") or "unknown"
+#     @stdout            : Latency value
+#
+#   get_dynamic_xrun_recommendations(xrun_count, severity)
+#     Generates context-aware buffer recommendations.
+#     @param  xrun_count : int - Number of xruns observed
+#     @param  severity   : string - "perfect", "mild", or "severe"
+#     @return            : void
+#     @stdout            : Multi-line recommendations
+#
+#   get_recommended_buffer(current_buffer, xrun_count)
+#     Calculates recommended buffer size based on xruns.
+#     @param  current_buffer : int|string - Current buffer size or "unknown"
+#     @param  xrun_count     : int - Number of xruns observed
+#     @return                : int - Recommended buffer size in samples
+#     @stdout                : Buffer size value
+#
+#   is_jack_running()
+#     Checks if JACK audio server is running.
+#     @exit   : 0 if running, 1 if not
+#     @note   : Duplicated from checks.sh for module independence
+#
+#   get_jack_compact_info()
+#     Gets compact JACK status for display.
+#     @return : string - "🎵 256@48000Hz" or "🎵 Inactive"
+#     @stdout : Compact status string
+#
+# RETURN VALUE FORMATS:
+#
+#   get_jack_settings() returns:
+#     "status|bufsize|samplerate|nperiods"
+#     - status: "✅ Active", "⚠️ Running (M4 not available)",
+#               "⚠️ Active (user session)", or "❌ Not active"
+#     - bufsize: Buffer size in samples (e.g., "256") or "unknown"
+#     - samplerate: Sample rate in Hz (e.g., "48000") or "unknown"
+#     - nperiods: Number of periods (e.g., "2") or "unknown"
+#
+# DEPENDENCIES:
+#   - External commands: jack_bufsize, jack_samplerate, jack_control (optional)
+#   - Optional: bc (for precise latency calculation)
+#
 # ============================================================================
 # JACK SETTINGS RETRIEVAL
 # ============================================================================

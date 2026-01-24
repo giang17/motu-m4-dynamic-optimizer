@@ -2,7 +2,95 @@
 
 # MOTU M4 Dynamic Optimizer - Optimization Module
 # Contains main activation and deactivation functions for audio optimizations
-
+#
+# ============================================================================
+# MODULE API REFERENCE
+# ============================================================================
+#
+# PUBLIC FUNCTIONS:
+#
+#   activate_audio_optimizations()
+#     Main entry point for enabling all audio optimizations.
+#     @return   : void
+#     @requires : Root privileges
+#     @modifies : CPU governors, IRQ affinity, process affinity, USB settings,
+#                 kernel parameters, state file
+#     @calls    : _optimize_p_cores, _configure_background_e_cores,
+#                 _optimize_irq_e_cores, _optimize_usb_irqs, _optimize_audio_irqs,
+#                 optimize_audio_process_affinity, optimize_motu_usb_settings,
+#                 optimize_kernel_parameters, optimize_advanced_audio_settings
+#
+#   deactivate_audio_optimizations()
+#     Reverts all optimizations to system defaults.
+#     @return   : void
+#     @requires : Root privileges
+#     @modifies : CPU governors, IRQ affinity, process affinity, kernel params
+#     @calls    : _reset_cpu_governors, reset_audio_process_affinity,
+#                 _reset_usb_irqs, _reset_audio_irqs, reset_kernel_parameters
+#
+#   count_optimized_usb_irqs()
+#     Counts USB IRQs pinned to IRQ E-Cores.
+#     @return : string - "optimized/total" (e.g., "3/3")
+#     @stdout : Fraction string
+#
+#   count_optimized_audio_irqs()
+#     Counts audio IRQs pinned to IRQ E-Cores.
+#     @return : string - "optimized/total" (e.g., "2/2")
+#     @stdout : Fraction string
+#
+#   is_system_optimized()
+#     Checks if optimizations are currently active.
+#     @exit   : 0 if optimized, 1 if not
+#
+# PRIVATE FUNCTIONS:
+#
+#   _optimize_p_cores()
+#     Sets P-Cores (0-7) to performance governor.
+#     @modifies : /sys/devices/system/cpu/cpu[0-7]/cpufreq/
+#
+#   _configure_background_e_cores()
+#     Keeps Background E-Cores (8-13) on powersave.
+#     @modifies : /sys/devices/system/cpu/cpu[8-13]/cpufreq/
+#
+#   _optimize_irq_e_cores()
+#     Sets IRQ E-Cores (14-19) to performance governor.
+#     @modifies : /sys/devices/system/cpu/cpu[14-19]/cpufreq/
+#
+#   _reset_cpu_governors()
+#     Resets P-Cores and IRQ E-Cores to default governor.
+#     @modifies : /sys/devices/system/cpu/cpu[0-7,14-19]/cpufreq/
+#
+#   _optimize_usb_irqs()
+#     Pins USB controller IRQs to IRQ E-Cores.
+#     @modifies : /proc/irq/*/smp_affinity_list, threading, balance_disabled
+#
+#   _optimize_audio_irqs()
+#     Pins audio IRQs to IRQ E-Cores.
+#     @modifies : /proc/irq/*/smp_affinity_list, balance_disabled
+#
+#   _reset_usb_irqs()
+#     Resets USB IRQs to all CPUs.
+#     @modifies : /proc/irq/*/smp_affinity_list, balance_disabled
+#
+#   _reset_audio_irqs()
+#     Resets audio IRQs to all CPUs.
+#     @modifies : /proc/irq/*/smp_affinity_list, balance_disabled
+#
+# HYBRID STRATEGY CPU LAYOUT:
+#
+#   CPUs 0-7   (P-Cores)      : Performance governor, audio processing
+#   CPUs 8-13  (E-Cores BG)   : Powersave governor, background tasks
+#   CPUs 14-19 (E-Cores IRQ)  : Performance governor, IRQ handling
+#
+# DEPENDENCIES:
+#   - config.sh (CPU ranges, DEFAULT_GOVERNOR, IRQ_CPUS, ALL_CPUS)
+#   - logging.sh (log_message)
+#   - checks.sh (get_usb_irqs, get_audio_irqs, get_current_state, set_state)
+#   - process.sh (optimize_audio_process_affinity, reset_audio_process_affinity)
+#   - usb.sh (optimize_motu_usb_settings)
+#   - kernel.sh (optimize_kernel_parameters, reset_kernel_parameters,
+#                optimize_advanced_audio_settings)
+#
 # ============================================================================
 # MAIN ACTIVATION
 # ============================================================================

@@ -2,7 +2,102 @@
 
 # MOTU M4 Dynamic Optimizer - Xrun Module
 # Contains functions for xrun monitoring, statistics, and analysis
-
+#
+# ============================================================================
+# MODULE API REFERENCE
+# ============================================================================
+#
+# PUBLIC FUNCTIONS:
+#
+#   get_xrun_stats()
+#     Collects comprehensive xrun statistics from multiple sources.
+#     @return : string - "jack:N|pipewire:N|total:N"
+#     @stdout : Pipe-separated xrun counts
+#     @note   : Takes ~5 seconds due to jack_test
+#
+#   get_live_jack_xruns()
+#     Gets recent xrun count for real-time monitoring.
+#     @return : int - Xrun count from last 10-15 seconds
+#     @stdout : Count as string
+#     @note   : Faster than get_xrun_stats()
+#
+#   get_system_xruns()
+#     Gets system-wide xrun and error information.
+#     @return : string - "recent:N|severe:N|jack_msg:N"
+#     @stdout : Pipe-separated system xrun data
+#
+#   parse_xrun_stats(stats, field)
+#     Extracts a field from xrun stats string.
+#     @param  stats : string - Stats string (e.g., "jack:5|pipewire:3|total:8")
+#     @param  field : string - Field name ("jack", "pipewire", "total")
+#     @return       : int - Numeric value for the field
+#     @stdout       : Field value
+#
+#   parse_system_xruns(stats, field)
+#     Extracts a field from system xruns string.
+#     @param  stats : string - Stats string
+#     @param  field : string - "recent", "severe", or "jack_msg"
+#     @return       : int - Numeric value for the field
+#     @stdout       : Field value
+#
+#   get_xrun_severity(total_xruns, severe_xruns)
+#     Determines xrun severity category.
+#     @param  total_xruns  : int - Total xrun count
+#     @param  severe_xruns : int - Hardware error count (optional, default 0)
+#     @return              : string - "perfect", "mild", or "severe"
+#     @stdout              : Severity string
+#
+#   get_xrun_icon(xrun_count)
+#     Gets status icon based on xrun count.
+#     @param  xrun_count : int - Xrun count
+#     @return            : string - "✅", "⚠️", or "❌"
+#     @stdout            : Status icon
+#
+#   calculate_xrun_rate(xrun_count, time_period)
+#     Calculates xruns per minute.
+#     @param  xrun_count  : int - Number of xruns
+#     @param  time_period : int - Time period in seconds
+#     @return             : float|int - Xruns per minute
+#     @stdout             : Rate value
+#
+#   get_latest_xrun_message()
+#     Gets most recent xrun log message.
+#     @return : string - Xrun message or empty string
+#     @stdout : Log message text
+#
+# RETURN VALUE FORMATS:
+#
+#   get_xrun_stats():
+#     "jack:N|pipewire:N|total:N"
+#     - jack: JACK xruns from jack_test, logs, QJackCtl
+#     - pipewire: PipeWire-JACK-Tunnel xruns
+#     - total: Sum of jack + pipewire
+#
+#   get_system_xruns():
+#     "recent:N|severe:N|jack_msg:N"
+#     - recent: Audio xruns in last 5 minutes
+#     - severe: Hardware errors (USB disconnects, etc.)
+#     - jack_msg: JACK-specific log messages
+#
+# DETECTION SOURCES:
+#
+#   JACK xruns:
+#     - jack_test -t 5 (direct testing)
+#     - jack_simple_client (fallback)
+#     - journalctl JACK logs
+#     - QJackCtl logs
+#
+#   PipeWire xruns:
+#     - journalctl mod.jack-tunnel messages
+#
+#   System errors:
+#     - journalctl audio/sound logs
+#     - dmesg USB/audio errors
+#
+# DEPENDENCIES:
+#   - External commands: journalctl, dmesg (optional), jack_test (optional),
+#                        jack_simple_client (optional), bc (optional)
+#
 # ============================================================================
 # XRUN STATISTICS COLLECTION
 # ============================================================================

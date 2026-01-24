@@ -2,7 +2,84 @@
 
 # MOTU M4 Dynamic Optimizer - Monitor Module
 # Contains monitoring loops for continuous and live xrun monitoring
-
+#
+# ============================================================================
+# MODULE API REFERENCE
+# ============================================================================
+#
+# PUBLIC FUNCTIONS:
+#
+#   main_monitoring_loop()
+#     Continuous monitoring loop for systemd service.
+#     @return   : never (infinite loop)
+#     @requires : Root privileges
+#     @stdout   : Log messages via log_message()
+#     @behavior :
+#       - Every 5s: Check MOTU M4 connection
+#       - Every 30s: Re-apply process affinity
+#       - Every 10s: Monitor and log xruns
+#
+#   live_xrun_monitoring()
+#     Interactive real-time xrun monitoring.
+#     @return   : never (infinite loop, exit with Ctrl+C)
+#     @stdout   : Real-time status line updated every 2s
+#     @display  : [TIME] STATUS | MOTU | Audio | JACK | Session | 30s | Max | Timer
+#
+#   delayed_service_start()
+#     Boot-time optimization with wait for user audio services.
+#     @return   : void
+#     @requires : Root privileges
+#     @waits    : Up to MAX_AUDIO_WAIT seconds for PipeWire/JACK
+#     @calls    : activate_audio_optimizations or deactivate_audio_optimizations
+#
+# PRIVATE FUNCTIONS:
+#
+#   _check_and_report_xruns(last_count)
+#     Checks xruns and logs warnings if threshold exceeded.
+#     @param  last_count : int - Previous xrun count
+#     @exit              : Current xrun count (capped at 255)
+#     @stdout            : Warning messages via log_message()
+#
+#   _show_live_monitor_jack_info()
+#     Displays JACK status at live monitor start.
+#     @stdout : JACK settings and buffer warnings
+#
+#   _live_monitor_cycle(initial_xruns, session_start, max_xruns, timestamps...)
+#     Single update cycle for live monitoring.
+#     @param  initial_xruns : int - Baseline xrun count at session start
+#     @param  session_start : int - Unix epoch timestamp
+#     @param  max_xruns     : int - Maximum xruns seen this session
+#     @param  timestamps    : array - Recent xrun timestamps for 30s rate
+#     @stdout               : Updated status line via printf
+#
+#   _show_live_xrun_details(time, new_xruns, rate)
+#     Shows xrun details and recommendations on xrun events.
+#     @param  time      : string - Display time
+#     @param  new_xruns : int - New xruns in this interval
+#     @param  rate      : int - 30-second xrun rate
+#     @stdout           : Xrun details and buffer recommendations
+#
+# LOOP TIMING:
+#
+#   main_monitoring_loop:
+#     - Base interval: MONITOR_INTERVAL (5s)
+#     - Process check: Every 6 cycles (30s)
+#     - Xrun check: Every 2 cycles (10s)
+#
+#   live_xrun_monitoring:
+#     - Update interval: 2s
+#     - Rate window: 30s rolling
+#
+# DEPENDENCIES:
+#   - config.sh (OPTIMIZER_NAME, OPTIMIZER_VERSION, OPTIMIZER_STRATEGY,
+#                DAW_CPUS, AUDIO_MAIN_CPUS, IRQ_CPUS, BACKGROUND_CPUS,
+#                MONITOR_INTERVAL, MAX_AUDIO_WAIT, XRUN_WARNING_THRESHOLD)
+#   - logging.sh (log_message)
+#   - checks.sh (check_motu_m4, check_cpu_isolation)
+#   - jack.sh (get_jack_settings, calculate_latency_ms, get_jack_compact_info)
+#   - process.sh (optimize_script_performance, optimize_audio_process_affinity)
+#   - optimization.sh (activate_audio_optimizations, deactivate_audio_optimizations)
+#
 # ============================================================================
 # MAIN MONITORING LOOP
 # ============================================================================

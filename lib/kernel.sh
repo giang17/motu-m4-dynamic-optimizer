@@ -2,7 +2,97 @@
 
 # MOTU M4 Dynamic Optimizer - Kernel Module
 # Handles kernel parameter optimization for audio performance
-
+#
+# ============================================================================
+# MODULE API REFERENCE
+# ============================================================================
+#
+# PUBLIC FUNCTIONS:
+#
+#   optimize_kernel_parameters()
+#     Applies audio-optimized kernel parameter settings.
+#     @return   : void
+#     @requires : Root privileges
+#     @modifies : /proc/sys/kernel/sched_rt_runtime_us -> -1
+#                 /proc/sys/vm/swappiness -> 10
+#                 /proc/sys/kernel/sched_latency_ns -> 1000000
+#                 /proc/sys/kernel/sched_min_granularity_ns -> 100000
+#                 /proc/sys/kernel/sched_wakeup_granularity_ns -> 100000
+#
+#   reset_kernel_parameters()
+#     Reverts kernel parameters to Ubuntu/desktop defaults.
+#     @return   : void
+#     @requires : Root privileges
+#     @modifies : Restores default values for all parameters above
+#
+#   optimize_advanced_audio_settings()
+#     Applies supplementary audio optimizations.
+#     @return   : void
+#     @requires : Root privileges
+#     @modifies : /sys/module/usbcore/parameters/usbfs_memory_mb -> 256
+#                 /proc/sys/dev/hpet/max-user-freq -> 2048
+#                 /sys/class/net/*/queues/rx-*/rps_cpus -> 0x3f00
+#
+#   get_rt_runtime()
+#     Gets current RT scheduling limit.
+#     @return : string - Value in microseconds, "-1", or "N/A"
+#     @stdout : RT runtime limit
+#
+#   get_swappiness()
+#     Gets current swappiness setting.
+#     @return : string - Value 0-100 or "N/A"
+#     @stdout : Swappiness value
+#
+#   get_sched_latency()
+#     Gets current scheduler latency.
+#     @return : string - Value in nanoseconds or "N/A"
+#     @stdout : Scheduler latency
+#
+#   get_min_granularity()
+#     Gets current minimum granularity.
+#     @return : string - Value in nanoseconds or "N/A"
+#     @stdout : Min granularity
+#
+#   get_dirty_ratio()
+#     Gets current dirty page ratio.
+#     @return : string - Value 0-100 or "N/A"
+#     @stdout : Dirty ratio percentage
+#
+#   get_rt_period()
+#     Gets current RT scheduling period.
+#     @return : string - Value in microseconds or "N/A"
+#     @stdout : RT period
+#
+#   show_kernel_status()
+#     Displays kernel parameter status.
+#     @return : void
+#     @stdout : Formatted status output
+#
+#   show_advanced_kernel_status()
+#     Displays detailed kernel parameter status.
+#     @return : void
+#     @stdout : Extended formatted status output
+#
+# PRIVATE FUNCTIONS:
+#
+#   _optimize_network_rps()
+#     Redirects network RPS to background E-Cores.
+#     @return   : void
+#     @modifies : /sys/class/net/*/queues/rx-*/rps_cpus
+#
+# KERNEL PARAMETERS (Audio-Optimized -> Default):
+#
+#   sched_rt_runtime_us:      -1 (unlimited) -> 950000 (95%)
+#   swappiness:               10 -> 60
+#   sched_latency_ns:         1000000 (1ms) -> 6000000 (6ms)
+#   sched_min_granularity_ns: 100000 (0.1ms) -> 750000 (0.75ms)
+#   sched_wakeup_granularity_ns: 100000 (0.1ms) -> 1000000 (1ms)
+#   usbfs_memory_mb:          256 -> 16
+#   hpet/max-user-freq:       2048 -> 64
+#
+# DEPENDENCIES:
+#   - logging.sh (log_message)
+#
 # ============================================================================
 # KERNEL PARAMETER OPTIMIZATION
 # ============================================================================

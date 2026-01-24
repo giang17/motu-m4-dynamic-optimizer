@@ -2,6 +2,35 @@
 
 # MOTU M4 Dynamic Optimizer - Logging Module
 # Provides logging functionality with fallback for non-root users
+#
+# ============================================================================
+# MODULE API REFERENCE
+# ============================================================================
+#
+# PUBLIC FUNCTIONS:
+#
+#   log_message(message)
+#     Logs a timestamped message to file and stdout.
+#     @param  message : string - The message to log
+#     @return         : void
+#     @stdout         : Timestamped message
+#     @file           : Appends to LOG_FILE (root) or user log (non-root)
+#     @env MOTU_QUIET_LOG : If "1", skips file logging
+#
+#   log_silent(message)
+#     Logs silently to file only (no stdout output).
+#     @param  message : string - The message to log
+#     @return         : void
+#     @stdout         : (none)
+#     @file           : Appends to LOG_FILE if writable, otherwise discards
+#
+# DEPENDENCIES:
+#   - config.sh (LOG_FILE variable)
+#
+# ENVIRONMENT VARIABLES:
+#   - MOTU_QUIET_LOG : Set to "1" to disable file logging in log_message()
+#
+# ============================================================================
 
 # Logging function with fallback for normal users
 # Writes timestamped messages to log file and stdout.

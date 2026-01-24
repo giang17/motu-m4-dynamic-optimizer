@@ -2,7 +2,61 @@
 
 # MOTU M4 Dynamic Optimizer - USB Module
 # Contains MOTU M4 USB-specific optimization functions
-
+#
+# ============================================================================
+# MODULE API REFERENCE
+# ============================================================================
+#
+# PUBLIC FUNCTIONS:
+#
+#   optimize_motu_usb_settings()
+#     Main entry point for USB optimizations.
+#     @return : void
+#     @exit   : 0 on success, 1 if device not found
+#     @sysfs  : Modifies USB device power and transfer settings
+#     @requires : Root privileges
+#
+#   get_motu_usb_power_status()
+#     Gets formatted USB power and connection status.
+#     @return : void
+#     @exit   : 0 if found, 1 if not found
+#     @stdout : Multi-line status information
+#
+#   get_motu_usb_details()
+#     Gets lsusb details for MOTU M4.
+#     @return : void
+#     @stdout : USB bus and device information
+#
+#   optimize_usb_memory()
+#     Increases global USB filesystem memory buffer.
+#     @return : void
+#     @exit   : 0 on success, 1 on failure
+#     @sysfs  : Modifies /sys/module/usbcore/parameters/usbfs_memory_mb
+#     @requires : Root privileges
+#
+#   get_usb_memory_setting()
+#     Gets current usbfs memory buffer size.
+#     @return : string - Size in MB or "N/A"
+#     @stdout : Memory size
+#
+# PRIVATE FUNCTIONS (internal use only):
+#
+#   _optimize_usb_power(usb_device)
+#     Disables USB power management for device.
+#     @param  usb_device : string - Sysfs device path
+#     @return            : void
+#     @sysfs             : Modifies power/control, power/autosuspend*
+#
+#   _optimize_usb_transfer(usb_device)
+#     Optimizes USB transfer settings (URB count).
+#     @param  usb_device : string - Sysfs device path
+#     @return            : void
+#     @sysfs             : Modifies urbnum if available
+#
+# DEPENDENCIES:
+#   - checks.sh (get_motu_usb_path)
+#   - logging.sh (log_message)
+#
 # ============================================================================
 # MOTU M4 USB OPTIMIZATION
 # ============================================================================

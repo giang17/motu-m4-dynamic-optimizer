@@ -2,7 +2,93 @@
 
 # MOTU M4 Dynamic Optimizer - Process Module
 # Handles audio process affinity and priority management
-
+#
+# ============================================================================
+# MODULE API REFERENCE
+# ============================================================================
+#
+# PUBLIC FUNCTIONS:
+#
+#   optimize_audio_process_affinity()
+#     Pins audio processes to optimal P-Cores with RT priorities.
+#     @return   : void
+#     @requires : Root or CAP_SYS_NICE privileges
+#     @modifies : Process CPU affinity and scheduling class
+#     @calls    : _set_process_affinity, _set_process_rt_priority,
+#                 _optimize_audio_applications
+#
+#   reset_audio_process_affinity()
+#     Resets all audio processes to default scheduling.
+#     @return   : void
+#     @modifies : Resets CPU affinity to ALL_CPUS, scheduling to SCHED_OTHER
+#
+#   get_process_affinity(pid)
+#     Gets CPU affinity for a process.
+#     @param  pid : int - Process ID
+#     @return     : string - CPU list (e.g., "0-5") or "N/A"
+#     @stdout     : Affinity string
+#
+#   get_process_priority(pid)
+#     Gets RT priority for a process.
+#     @param  pid : int - Process ID
+#     @return     : string - Priority value or "N/A"
+#     @stdout     : Priority string
+#
+#   optimize_script_performance()
+#     Optimizes the optimizer script itself.
+#     @return   : void
+#     @modifies : Script's CPU affinity, scheduling class, I/O priority
+#
+#   list_audio_processes()
+#     Lists running audio processes with their settings.
+#     @return : void
+#     @stdout : Formatted list with CPU affinity and priority
+#
+#   get_script_performance_info()
+#     Gets optimizer script's performance settings.
+#     @return : string - Formatted info line
+#     @stdout : "Optimizer (PID): CPUs=..., Prio=..., IO=..."
+#
+# PRIVATE FUNCTIONS:
+#
+#   _optimize_audio_applications()
+#     Optimizes DAWs, synths, and plugins from AUDIO_PROCESSES list.
+#     @return   : void
+#     @modifies : Process CPU affinity and RT priority
+#
+#   _set_process_affinity(pid, cpus, name)
+#     Sets CPU affinity for a process using taskset.
+#     @param  pid  : int - Process ID
+#     @param  cpus : string - CPU list (e.g., "0-5")
+#     @param  name : string - Process name for logging
+#     @exit        : 0 on success, 1 on failure
+#
+#   _set_process_rt_priority(pid, priority, name)
+#     Sets SCHED_FIFO priority for a process using chrt.
+#     @param  pid      : int - Process ID
+#     @param  priority : int - Priority level 1-99
+#     @param  name     : string - Process name for logging
+#     @exit            : 0 on success, 1 on failure
+#     @requires        : CAP_SYS_NICE or root
+#
+# PROCESS PRIORITY HIERARCHY:
+#
+#   Priority 99 : JACK server (jackd, jackdbus) on AUDIO_MAIN_CPUS
+#   Priority 85 : PipeWire on AUDIO_MAIN_CPUS
+#   Priority 80 : PipeWire-Pulse, WirePlumber on AUDIO_MAIN_CPUS
+#   Priority 70 : DAWs, synths, plugins on DAW_CPUS
+#
+# EXTERNAL COMMANDS:
+#
+#   taskset : Sets/gets CPU affinity (util-linux)
+#   chrt    : Sets/gets RT scheduling (util-linux)
+#   ionice  : Sets I/O scheduling class (util-linux)
+#
+# DEPENDENCIES:
+#   - config.sh (AUDIO_MAIN_CPUS, DAW_CPUS, BACKGROUND_CPUS, ALL_CPUS,
+#                RT_PRIORITY_*, AUDIO_PROCESSES)
+#   - logging.sh (log_message)
+#
 # ============================================================================
 # PROCESS AFFINITY OPTIMIZATION
 # ============================================================================

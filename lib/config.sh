@@ -2,7 +2,62 @@
 
 # MOTU M4 Dynamic Optimizer v4 - Configuration Module
 # Contains all configuration variables and constants
-
+#
+# ============================================================================
+# MODULE API REFERENCE
+# ============================================================================
+#
+# This module provides configuration constants only (no functions).
+# All values should be treated as read-only after module load.
+#
+# EXPORTED VARIABLES:
+#
+#   File Paths:
+#     LOG_FILE            : string  - System log file path
+#     STATE_FILE          : string  - Runtime state file path
+#
+#   CPU Assignments:
+#     IRQ_CPUS            : string  - CPU range for IRQ handling (e.g., "14-19")
+#     AUDIO_MAIN_CPUS     : string  - CPU range for JACK/PipeWire (e.g., "6-7")
+#     DAW_CPUS            : string  - CPU range for DAW applications (e.g., "0-5")
+#     BACKGROUND_CPUS     : string  - CPU range for background tasks (e.g., "8-13")
+#     ALL_CPUS            : string  - Full CPU range for reset (e.g., "0-19")
+#
+#   Default Settings:
+#     DEFAULT_GOVERNOR    : string  - Default CPU governor (e.g., "powersave")
+#
+#   MOTU M4 USB Identifiers:
+#     MOTU_VENDOR_ID      : string  - USB vendor ID (hex, e.g., "07fd")
+#     MOTU_PRODUCT_ID     : string  - USB product ID (hex, e.g., "000b")
+#     MOTU_CARD_ID        : string  - ALSA card identifier (e.g., "M4")
+#
+#   Xrun Thresholds:
+#     XRUN_WARNING_THRESHOLD : int  - Xruns/30s before warning (default: 10)
+#     XRUN_SEVERE_THRESHOLD  : int  - Xruns/30s for severe status (default: 5)
+#
+#   Timing Constants:
+#     MONITOR_INTERVAL       : int  - Main loop interval in seconds (default: 5)
+#     PROCESS_CHECK_INTERVAL : int  - Process check interval in seconds (default: 30)
+#     XRUN_CHECK_INTERVAL    : int  - Xrun check interval in seconds (default: 10)
+#     MAX_AUDIO_WAIT         : int  - Max wait for audio services in seconds (default: 45)
+#
+#   Audio Process Configuration:
+#     AUDIO_PROCESSES     : array   - List of audio process names to optimize
+#     AUDIO_GREP_PATTERN  : string  - Regex pattern for finding audio processes
+#
+#   RT Priority Levels:
+#     RT_PRIORITY_JACK    : int     - JACK server priority (default: 99)
+#     RT_PRIORITY_PIPEWIRE: int     - PipeWire priority (default: 85)
+#     RT_PRIORITY_PULSE   : int     - PipeWire-Pulse priority (default: 80)
+#     RT_PRIORITY_AUDIO   : int     - Audio applications priority (default: 70)
+#
+#   Version Information:
+#     OPTIMIZER_VERSION   : string  - Version number (e.g., "4.0")
+#     OPTIMIZER_NAME      : string  - Full product name
+#     OPTIMIZER_STRATEGY  : string  - Strategy description
+#
+# DEPENDENCIES: None (pure configuration)
+#
 # ============================================================================
 # FILE PATHS
 # ============================================================================
