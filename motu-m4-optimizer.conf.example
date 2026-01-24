@@ -1,0 +1,127 @@
+# MOTU M4 Dynamic Optimizer - Configuration File
+# ============================================================================
+#
+# This file allows customization of the optimizer without modifying code.
+# Copy this file to /etc/motu-m4-optimizer.conf and uncomment/modify values.
+#
+# Only uncommented variables will override the defaults.
+# All values shown are the defaults.
+#
+# ============================================================================
+
+# ============================================================================
+# CPU ASSIGNMENTS
+# ============================================================================
+#
+# Adjust these values to match your CPU topology.
+# Use "lscpu -e" to see your CPU layout.
+#
+# Default values are optimized for Intel 12th/13th Gen hybrid architecture:
+#   - P-Cores (Performance): CPUs 0-7 - High single-thread performance
+#   - E-Cores (Efficiency): CPUs 8-19 - Lower power, good for background tasks
+
+# CPUs for handling hardware interrupts (IRQs)
+# Recommendation: Use E-Cores to avoid interrupting audio processing
+# IRQ_CPUS="14-19"
+
+# CPUs for JACK/PipeWire audio server processes
+# Recommendation: Use dedicated P-Cores for lowest latency
+# AUDIO_MAIN_CPUS="6-7"
+
+# CPUs for DAW applications and audio plugins
+# Recommendation: Use P-Cores for maximum performance
+# DAW_CPUS="0-5"
+
+# CPUs for background audio tasks
+# Recommendation: Use E-Cores to reduce interference with main audio
+# BACKGROUND_CPUS="8-13"
+
+# Full CPU range (used for reset operations)
+# ALL_CPUS="0-19"
+
+# ============================================================================
+# REAL-TIME PRIORITY LEVELS
+# ============================================================================
+#
+# Real-time (SCHED_FIFO) priorities for audio processes.
+# Range: 1-99, higher = more priority (will preempt lower priority tasks)
+#
+# Priority hierarchy (highest to lowest):
+#   99 - JACK server: Must never be interrupted, handles all audio I/O
+#   85 - PipeWire: Audio graph processing
+#   80 - PipeWire-Pulse: PulseAudio compatibility layer
+#   70 - Audio apps: DAWs, synths, plugins - below audio servers
+#
+# Note: Requires appropriate RT permissions (rtkit or limits.conf)
+
+# RT_PRIORITY_JACK=99
+# RT_PRIORITY_PIPEWIRE=85
+# RT_PRIORITY_PULSE=80
+# RT_PRIORITY_AUDIO=70
+
+# ============================================================================
+# TIMING INTERVALS
+# ============================================================================
+#
+# Intervals control how often the optimizer checks and adjusts settings.
+# Lower values = more responsive but higher CPU overhead
+# Higher values = less overhead but slower reaction to changes
+#
+# All values are in seconds.
+
+# Main monitoring loop interval
+# MONITOR_INTERVAL=5
+
+# Interval for checking and adjusting process affinity
+# PROCESS_CHECK_INTERVAL=30
+
+# Interval for checking xrun counts
+# XRUN_CHECK_INTERVAL=10
+
+# Maximum wait time for user audio services (PipeWire/JACK) during startup
+# MAX_AUDIO_WAIT=45
+
+# ============================================================================
+# XRUN MONITORING THRESHOLDS
+# ============================================================================
+#
+# Xruns (buffer underruns/overruns) indicate audio dropouts.
+# These thresholds determine when warnings are triggered during monitoring.
+
+# Xruns per 30 seconds before warning is shown
+# XRUN_WARNING_THRESHOLD=10
+
+# Xruns per 30 seconds considered severe (with other issues)
+# XRUN_SEVERE_THRESHOLD=5
+
+# ============================================================================
+# ADDITIONAL AUDIO PROCESSES
+# ============================================================================
+#
+# Add your own audio applications to be optimized.
+# These are added to the built-in list of known audio processes.
+# Space-separated list of process names.
+#
+# Example: EXTRA_AUDIO_PROCESSES="my-custom-daw my-synth wine-preloader"
+
+# EXTRA_AUDIO_PROCESSES=""
+
+# ============================================================================
+# MOTU M4 USB IDENTIFIERS
+# ============================================================================
+#
+# Only change these if you have a different MOTU device.
+#
+# MOTU_VENDOR_ID="07fd"
+# MOTU_PRODUCT_ID="000b"
+# MOTU_CARD_ID="M4"
+
+# ============================================================================
+# FILE PATHS
+# ============================================================================
+#
+# Custom log and state file locations.
+# Only change if you have specific requirements.
+#
+# LOG_FILE="/var/log/motu-m4-optimizer.log"
+# STATE_FILE="/var/run/motu-m4-state"

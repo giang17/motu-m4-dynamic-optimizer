@@ -244,3 +244,26 @@ AUDIO_GREP_PATTERN="pulse|pipe|jack|audio|pianoteq|organteq|reaper|ardour|bitwig
 OPTIMIZER_VERSION="4.0"
 OPTIMIZER_NAME="MOTU M4 Dynamic Optimizer"
 OPTIMIZER_STRATEGY="Hybrid Strategy (Stability-optimized)"
+
+# ============================================================================
+# EXTERNAL CONFIGURATION FILE SUPPORT
+# ============================================================================
+#
+# Users can override default values by creating /etc/motu-m4-optimizer.conf
+# Only defined variables in the config file will override defaults.
+#
+# See /etc/motu-m4-optimizer.conf.example for available options.
+
+CONFIG_FILE="/etc/motu-m4-optimizer.conf"
+
+if [ -f "$CONFIG_FILE" ]; then
+    # shellcheck source=/dev/null
+    source "$CONFIG_FILE"
+
+    # Handle EXTRA_AUDIO_PROCESSES if defined
+    if [ -n "${EXTRA_AUDIO_PROCESSES:-}" ]; then
+        # Convert space-separated string to array and append to AUDIO_PROCESSES
+        read -ra EXTRA_ARRAY <<< "$EXTRA_AUDIO_PROCESSES"
+        AUDIO_PROCESSES+=("${EXTRA_ARRAY[@]}")
+    fi
+fi
