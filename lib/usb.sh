@@ -6,8 +6,18 @@
 # ============================================================================
 # MOTU M4 USB OPTIMIZATION
 # ============================================================================
+#
+# USB optimization is critical for audio interfaces to prevent dropouts.
+# Key optimizations:
+#   - Disable USB autosuspend to keep device always active
+#   - Increase USB buffer memory for better throughput
+#   - Optimize URB (USB Request Block) count for smoother transfers
 
 # Optimize MOTU M4 USB settings for audio performance
+# Main entry point for USB optimizations. Finds the device and applies
+# all USB-related optimizations.
+#
+# Returns: 0 on success, 1 if device not found
 optimize_motu_usb_settings() {
     log_message "🔌 Optimizing MOTU M4 USB settings..."
 
@@ -33,13 +43,25 @@ optimize_motu_usb_settings() {
 # ============================================================================
 # USB POWER MANAGEMENT
 # ============================================================================
+#
+# USB power management can cause audio dropouts when the device enters
+# suspend mode. These settings ensure the MOTU M4 stays fully powered.
 
 # Optimize USB power management for audio device
-# Args: $1 = USB device path
+# Disables all power saving features that could cause audio interruptions.
+#
+# Args:
+#   $1 - USB device sysfs path (from get_motu_usb_path)
+#
+# Modifies:
+#   - power/control: Set to "on" (disable runtime PM)
+#   - power/autosuspend: Set to -1 (disable autosuspend)
+#   - power/autosuspend_delay_ms: Set to -1 (disable delay-based suspend)
 _optimize_usb_power() {
     local usb_device="$1"
 
     # Disable USB autosuspend - keep device always on
+    # "on" means device is always active, "auto" allows power management
     if [ -e "$usb_device/power/control" ]; then
         echo "on" > "$usb_device/power/control" 2>/dev/null
         if [ $? -eq 0 ]; then
@@ -47,7 +69,8 @@ _optimize_usb_power() {
         fi
     fi
 
-    # Disable autosuspend delay
+    # Disable autosuspend delay (legacy interface)
+    # -1 = never autosuspend
     if [ -e "$usb_device/power/autosuspend" ]; then
         echo -1 > "$usb_device/power/autosuspend" 2>/dev/null
         if [ $? -eq 0 ]; then
@@ -55,7 +78,8 @@ _optimize_usb_power() {
         fi
     fi
 
-    # Disable autosuspend delay (ms version)
+    # Disable autosuspend delay (ms version - newer kernels)
+    # -1 = never autosuspend
     if [ -e "$usb_device/power/autosuspend_delay_ms" ]; then
         echo -1 > "$usb_device/power/autosuspend_delay_ms" 2>/dev/null
         if [ $? -eq 0 ]; then
@@ -63,7 +87,7 @@ _optimize_usb_power() {
         fi
     fi
 
-    # Set runtime PM to always on
+    # Log runtime PM status for debugging
     if [ -e "$usb_device/power/runtime_status" ]; then
         local runtime_status
         runtime_status=$(cat "$usb_device/power/runtime_status" 2>/dev/null)
@@ -74,13 +98,23 @@ _optimize_usb_power() {
 # ============================================================================
 # USB TRANSFER OPTIMIZATION
 # ============================================================================
+#
+# URBs (USB Request Blocks) are the data structures used for USB transfers.
+# More URBs = more buffering = smoother audio at the cost of slightly higher latency.
 
 # Optimize USB transfer settings
-# Args: $1 = USB device path
+# Increases URB count for better audio streaming stability.
+#
+# Args:
+#   $1 - USB device sysfs path
+#
+# Note: The urbnum parameter may not be writable on all systems/kernels.
+#       This is normal and the optimization will be skipped silently.
 _optimize_usb_transfer() {
     local usb_device="$1"
 
     # Increase URB count for better buffer handling
+    # Default is typically 2-4, increasing to 32 provides more buffering
     if [ -e "$usb_device/urbnum" ]; then
         echo 32 > "$usb_device/urbnum" 2>/dev/null
         if [ $? -eq 0 ]; then
@@ -158,10 +192,21 @@ get_motu_usb_details() {
 # ============================================================================
 # USB MEMORY OPTIMIZATION
 # ============================================================================
+#
+# The usbfs memory buffer limits how much data can be in-flight for USB
+# transfers. The default (16MB) can be too low for high-bandwidth audio
+# interfaces, especially at high sample rates.
 
 # Optimize USB subsystem memory settings
+# Increases the global USB filesystem memory buffer to 256MB.
+# This affects all USB devices, not just the MOTU M4.
+#
+# Returns: 0 on success, 1 on failure
+#
+# Note: Requires root privileges to modify
 optimize_usb_memory() {
     # Increase USB filesystem memory buffer
+    # Default is typically 16MB, 256MB provides headroom for high-bandwidth audio
     if [ -e /sys/module/usbcore/parameters/usbfs_memory_mb ]; then
         echo 256 > /sys/module/usbcore/parameters/usbfs_memory_mb 2>/dev/null
         if [ $? -eq 0 ]; then
@@ -173,6 +218,9 @@ optimize_usb_memory() {
 }
 
 # Get current USB memory setting
+# Returns the current usbfs memory buffer size in MB.
+#
+# Returns: Memory size in MB, or "N/A" if unavailable
 get_usb_memory_setting() {
     if [ -e /sys/module/usbcore/parameters/usbfs_memory_mb ]; then
         cat /sys/module/usbcore/parameters/usbfs_memory_mb 2>/dev/null

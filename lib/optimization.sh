@@ -6,9 +6,25 @@
 # ============================================================================
 # MAIN ACTIVATION
 # ============================================================================
+#
+# The "Hybrid Strategy" balances performance and stability:
+#   - P-Cores (0-7): Full performance for audio processing
+#   - Background E-Cores (8-13): Powersave to reduce interference
+#   - IRQ E-Cores (14-19): Performance for stable interrupt handling
+#
+# This approach provides excellent audio performance while keeping
+# background tasks from causing latency spikes.
 
 # Activate audio optimizations - Hybrid Strategy (Stability-optimized)
-# P-Cores on Performance, Background E-Cores on Powersave, IRQ E-Cores on Performance
+# Main entry point for enabling all audio optimizations.
+# Requires root privileges for most operations.
+#
+# Operations performed:
+#   1. CPU governor optimization (P-Cores and IRQ E-Cores to performance)
+#   2. IRQ affinity pinning (USB and audio IRQs to dedicated E-Cores)
+#   3. Audio process affinity (pin to optimal CPUs)
+#   4. USB device optimization (disable power management)
+#   5. Kernel parameter tuning (scheduler and memory settings)
 activate_audio_optimizations() {
     log_message "🎵 MOTU M4 detected - Activating hybrid audio optimizations..."
     log_message "🏗️  Strategy: P-Cores(0-7) Performance, Background E-Cores(8-13) Powersave, IRQ E-Cores(14-19) Performance"
@@ -48,8 +64,13 @@ activate_audio_optimizations() {
 # ============================================================================
 # MAIN DEACTIVATION
 # ============================================================================
+#
+# Deactivation restores the system to a balanced desktop configuration.
+# This is called when the MOTU M4 is disconnected or on explicit request.
 
 # Deactivate audio optimizations - Back to standard
+# Reverts all optimizations to system defaults.
+# Requires root privileges.
 deactivate_audio_optimizations() {
     log_message "🔧 MOTU M4 not detected - Reset to standard configuration..."
 
@@ -76,8 +97,16 @@ deactivate_audio_optimizations() {
 # ============================================================================
 # CPU GOVERNOR OPTIMIZATION
 # ============================================================================
+#
+# CPU governors control how the processor scales frequency:
+#   - "performance": Always run at maximum frequency (best for audio)
+#   - "powersave": Run at minimum frequency (power efficient)
+#   - "schedutil"/"ondemand": Scale based on load (balanced)
+#
+# For audio, we want P-Cores at maximum performance to minimize latency.
 
 # Optimize P-Cores (0-7) for audio processing
+# Sets performance governor and locks frequency to maximum.
 _optimize_p_cores() {
     log_message "🚀 Optimize P-Cores (0-7) for audio processing..."
 
@@ -107,6 +136,8 @@ _optimize_p_cores() {
 }
 
 # Keep background E-Cores (8-13) on Powersave for stability
+# Background E-Cores handle non-audio tasks. Keeping them on powersave
+# reduces power consumption and thermal interference with audio cores.
 _configure_background_e_cores() {
     log_message "🔋 Keep Background E-Cores (8-13) on Powersave for stability..."
 
@@ -126,6 +157,8 @@ _configure_background_e_cores() {
 }
 
 # Optimize IRQ E-Cores (14-19) for stable latency
+# IRQ handling requires consistent response time. Performance governor
+# ensures these cores respond quickly to USB/audio interrupts.
 _optimize_irq_e_cores() {
     log_message "⚡ Optimize IRQ E-Cores (14-19) for stable latency..."
 
@@ -172,8 +205,17 @@ _reset_cpu_governors() {
 # ============================================================================
 # IRQ OPTIMIZATION
 # ============================================================================
+#
+# IRQ (Interrupt Request) optimization pins hardware interrupts to specific
+# CPUs. By keeping USB and audio IRQs on dedicated E-Cores, we prevent
+# interrupt handling from preempting audio processing on P-Cores.
+#
+# Additional optimizations:
+#   - Forced threading: IRQ handlers run as threads (can be scheduled)
+#   - Disabled balancing: Prevents irqbalance from moving IRQs around
 
 # Optimize USB controller IRQs
+# Pins all xHCI (USB 3.0) controller IRQs to the IRQ E-Cores.
 _optimize_usb_irqs() {
     log_message "🎯 USB controller IRQs to E-Cores (14-19) for stable latency..."
 
@@ -213,6 +255,7 @@ _optimize_usb_irqs() {
 }
 
 # Optimize audio-related IRQs
+# Pins sound card IRQs to the IRQ E-Cores for consistent handling.
 _optimize_audio_irqs() {
     log_message "🔊 Audio IRQs to E-Cores (14-19) for optimal latency..."
 
@@ -284,8 +327,11 @@ _reset_audio_irqs() {
 # ============================================================================
 # OPTIMIZATION STATUS HELPERS
 # ============================================================================
+#
+# Functions to check optimization status for status display.
 
 # Count optimized USB IRQs
+# Returns: "optimized/total" (e.g., "3/3" means all optimized)
 count_optimized_usb_irqs() {
     local optimized=0
     local total=0
@@ -308,6 +354,7 @@ count_optimized_usb_irqs() {
 }
 
 # Count optimized audio IRQs
+# Returns: "optimized/total" (e.g., "2/2" means all optimized)
 count_optimized_audio_irqs() {
     local optimized=0
     local total=0
@@ -330,6 +377,9 @@ count_optimized_audio_irqs() {
 }
 
 # Check if system is currently optimized
+# Reads state file to determine if optimizations are active.
+#
+# Exit code: 0 if optimized, 1 if not
 is_system_optimized() {
     local current_state
     current_state=$(get_current_state)

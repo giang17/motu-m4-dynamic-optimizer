@@ -13,9 +13,17 @@ STATE_FILE="/var/run/motu-m4-state"
 # ============================================================================
 # CPU ASSIGNMENTS
 # ============================================================================
-
-# CPU assignments for process pinning
-# Optimized for Intel 12th/13th Gen with P-Cores and E-Cores
+#
+# CPU topology for Intel 12th/13th Gen hybrid architecture:
+#   - P-Cores (Performance): CPUs 0-7 - High single-thread performance
+#   - E-Cores (Efficiency): CPUs 8-19 - Lower power, good for background tasks
+#
+# Assignment strategy:
+#   - Audio-critical processes (JACK, DAWs) run on P-Cores for lowest latency
+#   - IRQ handling on dedicated E-Cores to avoid interrupting audio processing
+#   - Background tasks on remaining E-Cores to reduce interference
+#
+# Note: Adjust these values if your CPU has a different core layout
 
 IRQ_CPUS="14-19"        # E-Cores for IRQ handling (stable latency)
 AUDIO_MAIN_CPUS="6-7"   # P-Cores for JACK/PipeWire main processes
@@ -42,21 +50,31 @@ MOTU_CARD_ID="M4"
 # ============================================================================
 # XRUN MONITORING THRESHOLDS
 # ============================================================================
+#
+# Xruns (buffer underruns/overruns) indicate audio dropouts.
+# These thresholds determine when warnings are triggered during monitoring.
+#   - WARNING: Occasional xruns, audio still usable but consider buffer increase
+#   - SEVERE: Frequent xruns, audio quality significantly degraded
 
-XRUN_WARNING_THRESHOLD=10
-XRUN_SEVERE_THRESHOLD=5
+XRUN_WARNING_THRESHOLD=10  # Xruns per 30s before warning is shown
+XRUN_SEVERE_THRESHOLD=5    # Xruns per 30s considered severe (with other issues)
 
 # ============================================================================
 # TIMING CONSTANTS
 # ============================================================================
+#
+# Intervals control how often the optimizer checks and adjusts settings.
+# Lower values = more responsive but higher CPU overhead
+# Higher values = less overhead but slower reaction to changes
 
 # Monitoring intervals (in seconds)
-MONITOR_INTERVAL=5
+MONITOR_INTERVAL=5         # Main loop sleep between checks
 PROCESS_CHECK_INTERVAL=30  # Check process affinity every 30 seconds (6 cycles)
 XRUN_CHECK_INTERVAL=10     # Check xruns every 10 seconds (2 cycles)
 
 # Delayed service timing
-MAX_AUDIO_WAIT=45          # Maximum wait time for user audio services
+# When started as system service, wait for user session audio services to appear
+MAX_AUDIO_WAIT=45          # Maximum wait time for user audio services (PipeWire/JACK)
 
 # ============================================================================
 # AUDIO PROCESSES LIST
@@ -140,8 +158,18 @@ AUDIO_PROCESSES=(
 # ============================================================================
 # RT PRIORITY LEVELS
 # ============================================================================
+#
+# Real-time (SCHED_FIFO) priorities for audio processes.
+# Range: 1-99, higher = more priority (will preempt lower priority tasks)
+#
+# Priority hierarchy (highest to lowest):
+#   99 - JACK server: Must never be interrupted, handles all audio I/O
+#   85 - PipeWire: Audio graph processing
+#   80 - PipeWire-Pulse: PulseAudio compatibility layer
+#   70 - Audio apps: DAWs, synths, plugins - below audio servers
+#
+# Note: Requires appropriate RT permissions (rtkit or limits.conf)
 
-# Real-time priorities for different process types
 RT_PRIORITY_JACK=99       # Highest for JACK server
 RT_PRIORITY_PIPEWIRE=85   # High for PipeWire
 RT_PRIORITY_PULSE=80      # PipeWire-Pulse

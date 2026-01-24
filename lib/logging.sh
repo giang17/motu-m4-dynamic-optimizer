@@ -4,6 +4,18 @@
 # Provides logging functionality with fallback for non-root users
 
 # Logging function with fallback for normal users
+# Writes timestamped messages to log file and stdout.
+#
+# Behavior:
+#   - As root: Writes to system log ($LOG_FILE = /var/log/motu-m4-optimizer.log)
+#   - As user: Falls back to ~/.local/share/motu-m4-optimizer.log
+#   - With MOTU_QUIET_LOG=1: Only outputs to stdout, no file logging
+#
+# Args:
+#   $1 - Message to log
+#
+# Example:
+#   log_message "Starting optimization..."
 log_message() {
     local message="$(date '+%Y-%m-%d %H:%M:%S') - $1"
 
@@ -30,6 +42,18 @@ log_message() {
 }
 
 # Silent log - only logs if we have permission, otherwise discards
+# Use this for debug/verbose messages that shouldn't clutter stdout.
+#
+# Behavior:
+#   - Writes to system log only if writable (running as root)
+#   - Silently discards message if no write permission
+#   - Never outputs to stdout
+#
+# Args:
+#   $1 - Message to log
+#
+# Example:
+#   log_silent "Debug: CPU isolation check completed"
 log_silent() {
     local message="$(date '+%Y-%m-%d %H:%M:%S') - $1"
 

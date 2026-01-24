@@ -6,9 +6,27 @@
 # ============================================================================
 # XRUN STATISTICS COLLECTION
 # ============================================================================
+#
+# Xruns (buffer underruns/overruns) occur when the audio buffer empties
+# or overflows before being processed. They cause audible clicks/pops.
+#
+# Detection methods:
+#   1. jack_test: Direct JACK server testing
+#   2. journalctl: System log parsing for xrun messages
+#   3. dmesg: Kernel messages for USB/audio errors
+#
+# Common xrun causes:
+#   - Buffer size too small for system performance
+#   - CPU scheduling latency (other processes interfering)
+#   - USB bandwidth/power issues
 
 # Collect comprehensive xrun statistics
-# Returns: "jack:N|pipewire:N|total:N"
+# Uses multiple detection methods to find xruns from different sources.
+# Combines JACK, PipeWire, and system log data.
+#
+# Returns: "jack:N|pipewire:N|total:N" (pipe-separated string)
+#
+# Note: This function runs jack_test which takes ~5 seconds
 get_xrun_stats() {
     local jack_xruns=0
     local pipewire_xruns=0
@@ -71,8 +89,13 @@ get_xrun_stats() {
 # ============================================================================
 # LIVE XRUN DETECTION
 # ============================================================================
+#
+# Live detection focuses on very recent xruns (last 10-15 seconds).
+# Used for real-time monitoring where quick feedback is important.
 
 # Get live JACK xrun count (recent xruns for real-time monitoring)
+# Faster than get_xrun_stats() as it only checks recent logs.
+#
 # Returns: xrun count from last 10-15 seconds
 get_live_jack_xruns() {
     local xrun_count=0
@@ -110,9 +133,17 @@ get_live_jack_xruns() {
 # ============================================================================
 # SYSTEM XRUN MONITORING
 # ============================================================================
+#
+# System-wide monitoring looks at broader indicators including
+# USB errors and hardware problems that may cause audio issues.
 
 # Get system-wide xrun information from logs and messages
-# Returns: "recent:N|severe:N|jack_msg:N"
+# Searches journalctl and dmesg for audio-related problems.
+#
+# Returns: "recent:N|severe:N|jack_msg:N" (pipe-separated string)
+#   - recent: Audio xruns in last 5 minutes
+#   - severe: Hardware errors (USB disconnects, resets, etc.)
+#   - jack_msg: JACK-specific messages
 get_system_xruns() {
     local recent_xruns=0
     local severe_xruns=0
@@ -146,9 +177,17 @@ get_system_xruns() {
 # ============================================================================
 # XRUN ANALYSIS HELPERS
 # ============================================================================
+#
+# Helper functions for parsing and analyzing xrun statistics.
 
 # Parse xrun stats string and extract specific value
-# Args: $1 = stats string, $2 = field name (jack, pipewire, total)
+# Extracts a named field from the pipe-separated stats string.
+#
+# Args:
+#   $1 - Stats string (e.g., "jack:5|pipewire:3|total:8")
+#   $2 - Field name to extract ("jack", "pipewire", or "total")
+#
+# Returns: The numeric value for the specified field
 parse_xrun_stats() {
     local stats="$1"
     local field="$2"
@@ -166,8 +205,13 @@ parse_system_xruns() {
 }
 
 # Determine xrun severity level
-# Args: $1 = total xrun count, $2 = severe xrun count
-# Returns: "perfect", "mild", or "severe"
+# Categorizes xrun situation for appropriate recommendations.
+#
+# Args:
+#   $1 - Total xrun count
+#   $2 - Severe (hardware error) xrun count (optional, default 0)
+#
+# Returns: "perfect" (0 xruns), "mild" (<5 xruns), or "severe" (>=5 or hardware errors)
 get_xrun_severity() {
     local total_xruns="$1"
     local severe_xruns="${2:-0}"
@@ -198,9 +242,18 @@ get_xrun_icon() {
 # ============================================================================
 # XRUN RATE TRACKING
 # ============================================================================
+#
+# Rate calculation helps determine if audio problems are getting
+# worse or improving over time.
 
 # Calculate xrun rate (xruns per minute)
-# Args: $1 = xrun count, $2 = time period in seconds
+# Normalizes xrun count to a per-minute rate for comparison.
+#
+# Args:
+#   $1 - Xrun count observed
+#   $2 - Time period in seconds over which xruns were counted
+#
+# Returns: Xruns per minute (e.g., "12.5" or "12")
 calculate_xrun_rate() {
     local xrun_count="$1"
     local time_period="$2"

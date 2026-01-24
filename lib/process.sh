@@ -6,8 +6,24 @@
 # ============================================================================
 # PROCESS AFFINITY OPTIMIZATION
 # ============================================================================
+#
+# CPU affinity determines which cores a process can run on.
+# By pinning audio processes to specific P-Cores, we ensure:
+#   - Consistent cache locality (better performance)
+#   - No interference from background tasks on other cores
+#   - Predictable scheduling behavior
+#
+# Tools used:
+#   - taskset: Sets CPU affinity mask
+#   - chrt: Sets real-time scheduling priority
 
 # Set audio process affinity to optimal P-Cores
+# Main entry point for process optimization. Handles different process
+# types with appropriate CPU assignments and RT priorities.
+#
+# Priority hierarchy:
+#   - JACK/PipeWire: CPUs 6-7, priority 99/85 (audio server)
+#   - DAWs/synths: CPUs 0-5, priority 70 (audio applications)
 optimize_audio_process_affinity() {
     log_message "🎯 Set audio process affinity to optimal P-Cores..."
 
@@ -45,6 +61,8 @@ optimize_audio_process_affinity() {
 }
 
 # Optimize audio applications (DAWs, synths, plugins)
+# Iterates through AUDIO_PROCESSES list and applies optimization to each.
+# Audio servers (JACK, PipeWire) are skipped as they're handled separately.
 _optimize_audio_applications() {
     for audio_app in "${AUDIO_PROCESSES[@]}"; do
         # Skip JACK/PipeWire - they are handled separately on AUDIO_MAIN_CPUS
@@ -67,8 +85,12 @@ _optimize_audio_applications() {
 # ============================================================================
 # PROCESS AFFINITY RESET
 # ============================================================================
+#
+# Reset functions restore processes to default scheduling behavior,
+# allowing them to run on any CPU with normal (SCHED_OTHER) priority.
 
 # Reset audio process affinity to all CPUs
+# Reverts all audio process optimizations to system defaults.
 reset_audio_process_affinity() {
     log_message "🔄 Reset audio process affinity..."
 
@@ -95,9 +117,18 @@ reset_audio_process_affinity() {
 # ============================================================================
 # HELPER FUNCTIONS
 # ============================================================================
+#
+# Low-level functions for process manipulation using taskset and chrt.
 
 # Set process CPU affinity
-# Args: $1 = PID, $2 = CPU list, $3 = process name (for logging)
+# Uses taskset to pin a process to specific CPUs.
+#
+# Args:
+#   $1 - PID of the process
+#   $2 - CPU list (e.g., "0-5" or "6,7")
+#   $3 - Process name (for logging)
+#
+# Returns: 0 on success, 1 on failure
 _set_process_affinity() {
     local pid="$1"
     local cpus="$2"
@@ -116,7 +147,16 @@ _set_process_affinity() {
 }
 
 # Set process real-time priority
-# Args: $1 = PID, $2 = priority, $3 = process name (for logging)
+# Uses chrt to set SCHED_FIFO scheduling with specified priority.
+# SCHED_FIFO processes preempt all normal processes and lower-priority RT tasks.
+#
+# Args:
+#   $1 - PID of the process
+#   $2 - Priority level (1-99, higher = more priority)
+#   $3 - Process name (for logging)
+#
+# Returns: 0 on success, 1 on failure
+# Note: Requires CAP_SYS_NICE or root privileges
 _set_process_rt_priority() {
     local pid="$1"
     local priority="$2"
@@ -163,8 +203,17 @@ get_process_priority() {
 # ============================================================================
 # SCRIPT SELF-OPTIMIZATION
 # ============================================================================
+#
+# The optimizer script itself should not interfere with audio processing.
+# We pin it to background E-Cores and set low CPU/IO priority.
 
 # Optimize the optimizer script itself to not interfere with audio
+# Ensures the monitoring loop doesn't cause audio glitches.
+#
+# Optimizations applied:
+#   - CPU affinity: Background E-Cores (8-13)
+#   - Scheduling: SCHED_OTHER with priority 0 (lowest)
+#   - I/O class: idle (class 3) - only does I/O when system is idle
 optimize_script_performance() {
     local script_pid=$$
 
@@ -193,8 +242,12 @@ optimize_script_performance() {
 # ============================================================================
 # PROCESS LISTING
 # ============================================================================
+#
+# Functions for displaying audio process information in status output.
 
 # List all running audio processes with their settings
+# Displays CPU affinity and priority for each audio process found.
+# Output: Formatted list to stdout
 list_audio_processes() {
     local output=""
 
@@ -229,6 +282,8 @@ list_audio_processes() {
 }
 
 # Get script's own performance info
+# Returns the optimizer script's CPU affinity, priority, and I/O class.
+# Used by status display to show script resource usage.
 get_script_performance_info() {
     local script_pid=$$
     local affinity priority ionice_info

@@ -6,12 +6,24 @@
 # ============================================================================
 # KERNEL PARAMETER OPTIMIZATION
 # ============================================================================
+#
+# Kernel parameters affect how the Linux scheduler handles processes.
+# For audio, we want:
+#   - Unlimited RT scheduling time (no throttling of RT tasks)
+#   - Reduced swapping (memory should stay in RAM)
+#   - Finer scheduler granularity (faster context switches)
+#
+# These settings trade overall system responsiveness for audio priority.
 
 # Optimize kernel parameters for audio processing
+# Applies all audio-optimized kernel parameter settings.
+# Requires root privileges.
 optimize_kernel_parameters() {
     log_message "⚙️  Optimize kernel parameters for audio..."
 
     # Real-Time Scheduling - Allow unlimited RT scheduling
+    # Default: 950000 (95% of period). -1 = no limit on RT task CPU time
+    # Warning: Poorly written RT tasks could hang the system with -1
     if [ -e /proc/sys/kernel/sched_rt_runtime_us ]; then
         echo -1 > /proc/sys/kernel/sched_rt_runtime_us 2>/dev/null
         result=$?
@@ -21,6 +33,8 @@ optimize_kernel_parameters() {
     fi
 
     # Memory Management - Reduce swapping for audio stability
+    # Default: 60. Lower values = less swapping, more RAM pressure
+    # 10 = only swap when absolutely necessary
     if [ -e /proc/sys/vm/swappiness ]; then
         echo 10 > /proc/sys/vm/swappiness 2>/dev/null
         result=$?
@@ -29,7 +43,9 @@ optimize_kernel_parameters() {
         fi
     fi
 
-    # Scheduler Latency - Reduce for better audio response
+    # Scheduler Latency - Target latency for CPU-bound tasks
+    # Default: 6ms. Lower = more frequent scheduling, better latency
+    # 1ms is aggressive but good for audio
     if [ -e /proc/sys/kernel/sched_latency_ns ]; then
         echo 1000000 > /proc/sys/kernel/sched_latency_ns 2>/dev/null
         result=$?
@@ -38,7 +54,9 @@ optimize_kernel_parameters() {
         fi
     fi
 
-    # Minimum Granularity - Reduce for finer scheduling
+    # Minimum Granularity - Minimum time slice for tasks
+    # Default: 0.75ms. Lower = more preemption opportunities
+    # 0.1ms allows very fine-grained scheduling
     if [ -e /proc/sys/kernel/sched_min_granularity_ns ]; then
         echo 100000 > /proc/sys/kernel/sched_min_granularity_ns 2>/dev/null
         result=$?
@@ -47,7 +65,9 @@ optimize_kernel_parameters() {
         fi
     fi
 
-    # Wakeup Granularity - Reduce for faster process wakeup
+    # Wakeup Granularity - How quickly a waking task can preempt
+    # Default: 1ms. Lower = faster response to events
+    # 0.1ms ensures audio callbacks get CPU quickly
     if [ -e /proc/sys/kernel/sched_wakeup_granularity_ns ]; then
         echo 100000 > /proc/sys/kernel/sched_wakeup_granularity_ns 2>/dev/null
         result=$?
@@ -60,8 +80,13 @@ optimize_kernel_parameters() {
 # ============================================================================
 # KERNEL PARAMETER RESET
 # ============================================================================
+#
+# Restores kernel parameters to Ubuntu/desktop-friendly defaults.
+# These values balance responsiveness with power efficiency.
 
 # Reset kernel parameters to standard values
+# Reverts all audio optimizations to system defaults.
+# Requires root privileges.
 reset_kernel_parameters() {
     log_message "⚙️  Reset kernel parameters..."
 
@@ -114,12 +139,20 @@ reset_kernel_parameters() {
 # ============================================================================
 # ADVANCED AUDIO OPTIMIZATIONS
 # ============================================================================
+#
+# Additional optimizations beyond basic kernel parameters:
+#   - USB memory buffer: Larger buffers for USB audio stability
+#   - HPET frequency: Higher precision timing for audio callbacks
+#   - Network RPS: Keep network interrupts off audio CPUs
 
 # Activate advanced audio optimizations
+# Applies supplementary optimizations for better audio performance.
+# Requires root privileges.
 optimize_advanced_audio_settings() {
     log_message "🎼 Activating advanced audio optimizations..."
 
     # USB-Bulk-Transfer-Optimizations - Increase USB buffer
+    # Default: 16MB. 256MB provides headroom for high-bandwidth USB audio
     if [ -e /sys/module/usbcore/parameters/usbfs_memory_mb ]; then
         echo 256 > /sys/module/usbcore/parameters/usbfs_memory_mb 2>/dev/null
         result=$?
@@ -129,6 +162,8 @@ optimize_advanced_audio_settings() {
     fi
 
     # HPET frequency - Increase for better timing precision
+    # HPET (High Precision Event Timer) is used for accurate audio timing
+    # Default: 64Hz. 2048Hz allows more precise scheduling
     if [ -e /proc/sys/dev/hpet/max-user-freq ]; then
         echo 2048 > /proc/sys/dev/hpet/max-user-freq 2>/dev/null
         result=$?
@@ -142,6 +177,11 @@ optimize_advanced_audio_settings() {
 }
 
 # Optimize network RPS (Receive Packet Steering) to avoid audio CPU interference
+# RPS distributes network packet processing across CPUs. By restricting it
+# to background E-Cores, we prevent network activity from interrupting
+# audio processing on P-Cores.
+#
+# The bitmask 0x3f00 = binary 0011 1111 0000 0000 = CPUs 8-13
 _optimize_network_rps() {
     for netif in /sys/class/net/*/queues/rx-*/rps_cpus; do
         if [ -e "$netif" ]; then
@@ -155,8 +195,12 @@ _optimize_network_rps() {
 # ============================================================================
 # KERNEL PARAMETER QUERIES
 # ============================================================================
+#
+# Query functions for reading current kernel parameter values.
+# Used by status display functions.
 
 # Get current RT runtime setting
+# Returns: RT runtime limit in microseconds, -1 for unlimited, or "N/A"
 get_rt_runtime() {
     if [ -e /proc/sys/kernel/sched_rt_runtime_us ]; then
         cat /proc/sys/kernel/sched_rt_runtime_us
@@ -213,8 +257,12 @@ get_rt_period() {
 # ============================================================================
 # STATUS DISPLAY HELPERS
 # ============================================================================
+#
+# Functions to display kernel parameter status for user information.
 
 # Display kernel parameter status
+# Shows current values of audio-relevant kernel parameters.
+# Output: Prints status to stdout
 show_kernel_status() {
     local rt_runtime
     rt_runtime=$(get_rt_runtime)

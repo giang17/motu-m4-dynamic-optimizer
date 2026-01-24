@@ -6,9 +6,24 @@
 # ============================================================================
 # JACK SETTINGS RETRIEVAL
 # ============================================================================
+#
+# JACK (Jack Audio Connection Kit) settings are critical for audio latency.
+# Key parameters:
+#   - Buffer size: Samples per period (lower = less latency, more CPU)
+#   - Sample rate: Audio sample rate in Hz (higher = better quality, more CPU)
+#   - Periods: Number of buffers (2-3 typical, more = more latency tolerance)
 
 # Get current JACK settings
-# Returns: "status|bufsize|samplerate|nperiods"
+# Queries running JACK server for its configuration.
+# Handles both direct JACK and PipeWire's JACK compatibility layer.
+#
+# Returns: "status|bufsize|samplerate|nperiods" (pipe-separated string)
+#   - status: "✅ Active", "⚠️ Running (M4 not available)", or "❌ Not active"
+#   - bufsize: Buffer size in samples or "unknown"
+#   - samplerate: Sample rate in Hz or "unknown"
+#   - nperiods: Number of periods or "unknown"
+#
+# Example: "✅ Active|256|48000|2"
 get_jack_settings() {
     local bufsize="unknown"
     local samplerate="unknown"
@@ -81,10 +96,20 @@ get_jack_settings() {
 # ============================================================================
 # JACK LATENCY CALCULATIONS
 # ============================================================================
+#
+# Audio latency formula: latency_ms = (buffer_size / sample_rate) * 1000
+# Example: 256 samples @ 48000 Hz = 5.33ms per period
+#
+# Total round-trip latency = periods * buffer_latency * 2 (input + output)
 
 # Calculate latency in milliseconds from buffer size and sample rate
-# Args: $1 = buffer size, $2 = sample rate
-# Returns: latency in ms (with bc) or approximate value
+# Uses bc for precise calculation, falls back to integer math if unavailable.
+#
+# Args:
+#   $1 - Buffer size in samples
+#   $2 - Sample rate in Hz
+#
+# Returns: Latency in milliseconds (e.g., "5.3" or "~5")
 calculate_latency_ms() {
     local bufsize="$1"
     local samplerate="$2"
@@ -104,9 +129,19 @@ calculate_latency_ms() {
 # ============================================================================
 # DYNAMIC XRUN RECOMMENDATIONS
 # ============================================================================
+#
+# Xrun recommendations are generated based on current JACK settings and
+# observed xrun counts. The recommendations suggest buffer size increases
+# or other adjustments to reduce audio dropouts.
 
 # Generate dynamic xrun recommendations based on current JACK settings
-# Args: $1 = current xrun count, $2 = severity ("perfect", "mild", "severe")
+# Provides context-aware suggestions based on current configuration.
+#
+# Args:
+#   $1 - Current xrun count
+#   $2 - Severity level ("perfect", "mild", "severe")
+#
+# Output: Prints recommendations to stdout (not returned)
 get_dynamic_xrun_recommendations() {
     local current_xruns=$1
     local severity=$2
@@ -193,9 +228,22 @@ get_dynamic_xrun_recommendations() {
 # ============================================================================
 # BUFFER RECOMMENDATIONS
 # ============================================================================
+#
+# Buffer size recommendations scale with the severity of xrun problems.
+# General guidelines:
+#   - No xruns: Current buffer is fine
+#   - 1-5 xruns: Increase by 1.5x or to 256 minimum
+#   - 5-20 xruns: Increase by 2x or to 512 minimum
+#   - 20+ xruns: Increase by 4x or to 1024 minimum
 
 # Get recommended buffer size based on xrun count
-# Args: $1 = current buffer size, $2 = xrun count
+# Calculates appropriate buffer size increase based on xrun severity.
+#
+# Args:
+#   $1 - Current buffer size in samples
+#   $2 - Xrun count observed
+#
+# Returns: Recommended buffer size in samples
 get_recommended_buffer() {
     local current_buffer="$1"
     local xrun_count="$2"
@@ -229,13 +277,21 @@ get_recommended_buffer() {
 # ============================================================================
 # JACK STATUS HELPERS
 # ============================================================================
+#
+# Helper functions for JACK status checks and display formatting.
 
 # Check if JACK is running
+# Note: This is duplicated from checks.sh for module independence.
+#
+# Exit code: 0 if running, 1 if not
 is_jack_running() {
     pgrep -x "jackd" > /dev/null 2>&1 || pgrep -x "jackdbus" > /dev/null 2>&1
 }
 
 # Get compact JACK info string for display
+# Returns a short status string suitable for single-line display.
+#
+# Returns: "🎵 256@48000Hz" or "🎵 Inactive"
 get_jack_compact_info() {
     local jack_info
     jack_info=$(get_jack_settings)
