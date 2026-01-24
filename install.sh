@@ -126,6 +126,73 @@ check_source_files() {
 }
 
 # ============================================================================
+# TRAY INSTALLATION
+# ============================================================================
+
+# Install tray components (optional - requires yad)
+install_tray_components() {
+    local tray_dir="${SCRIPT_DIR}/tray"
+
+    # Check if tray directory exists
+    if [ ! -d "$tray_dir" ]; then
+        print_info "Tray directory not found - skipping tray installation"
+        return 0
+    fi
+
+    # Check if yad is available
+    if ! command -v yad &> /dev/null; then
+        print_warning "yad is not installed - skipping tray components"
+        print_info "To enable system tray, install yad: sudo apt install yad"
+        return 0
+    fi
+
+    print_step "Installing system tray components..."
+
+    # Install tray script
+    if [ -f "${tray_dir}/motu-m4-tray.sh" ]; then
+        install -m 755 "${tray_dir}/motu-m4-tray.sh" "${INSTALL_BIN}/motu-m4-tray"
+        print_success "Installed tray script: ${INSTALL_BIN}/motu-m4-tray"
+    fi
+
+    # Install icons
+    if [ -d "${tray_dir}/icons" ]; then
+        local icon_dest="/usr/share/icons/motu-m4"
+        mkdir -p "$icon_dest"
+        install -m 644 "${tray_dir}/icons/"*.svg "$icon_dest/" 2>/dev/null || true
+        print_success "Installed icons to: $icon_dest"
+    fi
+
+    # Install desktop file
+    if [ -f "${tray_dir}/motu-m4-tray.desktop" ]; then
+        install -m 644 "${tray_dir}/motu-m4-tray.desktop" "/usr/share/applications/"
+        print_success "Installed desktop entry"
+    fi
+
+    print_success "Tray components installed"
+    print_info "Start tray manually with: motu-m4-tray"
+    print_info "To enable auto-updates, set TRAY_ENABLED=\"true\" in $CONFIG_FILE"
+}
+
+# Remove tray components during uninstall
+uninstall_tray_components() {
+    print_step "Removing tray components..."
+
+    # Remove tray script
+    rm -f "${INSTALL_BIN}/motu-m4-tray"
+
+    # Remove icons
+    rm -rf "/usr/share/icons/motu-m4"
+
+    # Remove desktop file
+    rm -f "/usr/share/applications/motu-m4-tray.desktop"
+
+    # Remove tray state file
+    rm -f "/var/run/motu-m4-tray-state"
+
+    print_success "Tray components removed"
+}
+
+# ============================================================================
 # INSTALLATION
 # ============================================================================
 
@@ -187,7 +254,10 @@ REQUIRED_MODULES=(
     "status.sh" "monitor.sh"
 )
 
-# Load all modules
+# Optional modules (loaded if present)
+OPTIONAL_MODULES=("tray.sh")
+
+# Load all required modules
 for module in "${REQUIRED_MODULES[@]}"; do
     module_path="$LIB_DIR/$module"
     if [ -f "$module_path" ]; then
@@ -195,6 +265,14 @@ for module in "${REQUIRED_MODULES[@]}"; do
     else
         echo "❌ Error: Required module not found: $module_path"
         exit 1
+    fi
+done
+
+# Load optional modules (no error if missing)
+for module in "${OPTIONAL_MODULES[@]}"; do
+    module_path="$LIB_DIR/$module"
+    if [ -f "$module_path" ]; then
+        source "$module_path"
     fi
 done
 
@@ -324,6 +402,9 @@ WRAPPER_EOF
         print_success "Service enabled (will start automatically when MOTU M4 is connected)"
     fi
 
+    # Install tray components (optional)
+    install_tray_components
+
     echo ""
     print_success "Installation complete!"
     echo ""
@@ -334,6 +415,9 @@ WRAPPER_EOF
     echo "    ${SCRIPT_NAME} detailed    - Detailed hardware info"
     echo "    ${SCRIPT_NAME} live-xruns  - Live xrun monitoring"
     echo "    ${SCRIPT_NAME} once        - One-time optimization"
+    echo ""
+    echo "  System Tray (optional):"
+    echo "    motu-m4-tray              - Start system tray icon"
     echo ""
     echo "  The optimizer will automatically activate when MOTU M4 is connected."
     echo ""
@@ -382,6 +466,9 @@ do_uninstall() {
     print_step "Removing udev rules..."
     rm -f "${UDEV_DIR}/99-motu-m4-audio-optimizer.rules"
     print_success "Removed udev rules"
+
+    # Remove tray components
+    uninstall_tray_components
 
     # Reload daemons
     print_step "Reloading system daemons..."

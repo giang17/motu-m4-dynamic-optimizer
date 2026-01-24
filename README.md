@@ -10,12 +10,14 @@ A hybrid udev/systemd solution for optimizing Linux audio performance with the M
 - 🎛️ **Dynamic JACK settings detection** with contextual recommendations
 - 🔄 **Plug-and-play** without manual intervention
 - 🏗️ **Modular architecture** for easy maintenance and customization
+- 🖥️ **Optional system tray icon** for visual status display (requires yad)
 
 ## Requirements
 
 - Linux (Ubuntu 24.04 or compatible distribution)
 - MOTU M4 Audio Interface
 - Root privileges for installation
+- Optional: `yad` package for system tray icon (`sudo apt install yad`)
 
 ## Quick Installation
 
@@ -81,6 +83,9 @@ sudo motu-m4-dynamic-optimizer once
 
 # Deactivate optimizations
 sudo motu-m4-dynamic-optimizer stop
+
+# Start system tray icon (optional, requires yad)
+motu-m4-tray
 ```
 
 ## Project Structure
@@ -102,7 +107,12 @@ motu-m4-dynamic-optimizer/
 │   ├── kernel.sh                    # Kernel parameter tuning
 │   ├── optimization.sh              # Main optimization logic
 │   ├── status.sh                    # Status display functions
-│   └── monitor.sh                   # Monitoring loops
+│   ├── monitor.sh                   # Monitoring loops
+│   └── tray.sh                      # System tray integration (optional)
+├── tray/                            # System tray application
+│   ├── motu-m4-tray.sh              # Tray icon application
+│   ├── motu-m4-tray.desktop         # Desktop entry
+│   └── icons/                       # Status icons (SVG)
 ├── motu-m4-dynamic-optimizer.service
 ├── motu-m4-dynamic-optimizer-delayed.service
 ├── 99-motu-m4-audio-optimizer.rules
@@ -132,6 +142,46 @@ The optimizer uses a hybrid CPU strategy optimized for Intel 12th/13th Gen proce
 - **Process Affinity**: Audio processes pinned to P-cores with RT priority
 - **USB Settings**: Autosuspend disabled, power management optimized
 - **Kernel Parameters**: RT scheduling, swappiness, scheduler latency tuned
+
+## System Tray Icon (Optional)
+
+The optimizer includes an optional system tray icon for visual status display.
+
+### Requirements
+
+```bash
+sudo apt install yad
+```
+
+### Usage
+
+```bash
+# Start the tray icon manually
+motu-m4-tray
+```
+
+### Features
+
+- **Status Icons**:
+  - 🟢 Green: MOTU M4 connected and optimized
+  - 🔵 Blue: MOTU M4 connected but not optimized
+  - 🟠 Orange: Warning (xruns detected)
+  - ⚫ Gray: MOTU M4 not connected
+
+- **Right-click Menu**:
+  - Status anzeigen (View status in terminal)
+  - Live Xrun-Monitor (Open live monitoring)
+  - Optimierung starten/stoppen (Start/stop optimization)
+
+### Configuration
+
+To enable automatic tray state updates, add to `/etc/motu-m4-optimizer.conf`:
+
+```bash
+TRAY_ENABLED="true"
+```
+
+See `motu-m4-optimizer.conf.example` for all available tray options.
 
 ## Troubleshooting
 

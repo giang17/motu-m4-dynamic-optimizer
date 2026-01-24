@@ -253,6 +253,33 @@ AUDIO_GREP_PATTERN="pulse|pipe|jack|audio|pianoteq|organteq|reaper|ardour|bitwig
 MOTU_LOG_LEVEL="${MOTU_LOG_LEVEL:-INFO}"
 
 # ============================================================================
+# SYSTEM TRAY CONFIGURATION
+# ============================================================================
+#
+# Optional system tray icon for visual status display.
+# Requires yad package to be installed.
+# If yad is not available, tray features are silently disabled.
+
+# Enable/disable the system tray integration
+# Set to "true" to enable tray state updates
+TRAY_ENABLED="${TRAY_ENABLED:-false}"
+
+# Path to the tray state file (read by tray application)
+TRAY_STATE_FILE="/var/run/motu-m4-tray-state"
+
+# Tray icon directory (where icons are installed)
+TRAY_ICON_DIR="/usr/share/icons/motu-m4"
+
+# Tray update interval in seconds (how often tray polls state file)
+TRAY_UPDATE_INTERVAL="${TRAY_UPDATE_INTERVAL:-5}"
+
+# Show desktop notification on xruns
+TRAY_NOTIFY_ON_XRUN="${TRAY_NOTIFY_ON_XRUN:-true}"
+
+# Show desktop notification on state changes (connect/disconnect)
+TRAY_NOTIFY_ON_STATE_CHANGE="${TRAY_NOTIFY_ON_STATE_CHANGE:-true}"
+
+# ============================================================================
 # VERSION INFO
 # ============================================================================
 

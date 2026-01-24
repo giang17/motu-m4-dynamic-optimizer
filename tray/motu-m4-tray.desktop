@@ -1,0 +1,13 @@
+[Desktop Entry]
+Name=MOTU M4 Optimizer Tray
+GenericName=Audio Optimizer Tray
+Comment=System tray icon for MOTU M4 Dynamic Optimizer
+Exec=motu-m4-tray
+Icon=/usr/share/icons/motu-m4/motu-optimized.svg
+Terminal=false
+Type=Application
+Categories=AudioVideo;Audio;Settings;
+Keywords=motu;audio;optimizer;tray;jack;pipewire;
+StartupNotify=false
+X-GNOME-Autostart-enabled=false
+X-GNOME-Autostart-Delay=5
