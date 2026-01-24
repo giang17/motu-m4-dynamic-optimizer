@@ -23,6 +23,7 @@ INSTALL_BIN="/usr/local/bin"
 INSTALL_LIB="/usr/local/lib/${SCRIPT_NAME}"
 SYSTEMD_DIR="/etc/systemd/system"
 UDEV_DIR="/etc/udev/rules.d"
+CONFIG_FILE="/etc/motu-m4-optimizer.conf"
 LOG_FILE="/var/log/motu-m4-optimizer.log"
 
 # Source files
@@ -31,6 +32,7 @@ LIB_DIR="${SCRIPT_DIR}/lib"
 SERVICE_FILE="${SCRIPT_DIR}/motu-m4-dynamic-optimizer.service"
 DELAYED_SERVICE_FILE="${SCRIPT_DIR}/motu-m4-dynamic-optimizer-delayed.service"
 UDEV_RULES="${SCRIPT_DIR}/99-motu-m4-audio-optimizer.rules"
+EXAMPLE_CONFIG="${SCRIPT_DIR}/motu-m4-optimizer.conf.example"
 
 # Colors for output
 RED='\033[0;31m'
@@ -287,6 +289,19 @@ WRAPPER_EOF
         print_success "Installed udev rules"
     fi
 
+    # Install example configuration file
+    if [ -f "$EXAMPLE_CONFIG" ]; then
+        print_step "Installing example configuration file..."
+        cp "$EXAMPLE_CONFIG" "/etc/motu-m4-optimizer.conf.example"
+        chmod 644 "/etc/motu-m4-optimizer.conf.example"
+        print_success "Installed example config: /etc/motu-m4-optimizer.conf.example"
+        if [ ! -f "$CONFIG_FILE" ]; then
+            print_info "To customize settings, copy to $CONFIG_FILE and edit"
+        else
+            print_info "User configuration exists: $CONFIG_FILE"
+        fi
+    fi
+
     # Create log file with correct permissions
     print_step "Setting up log file..."
     touch "$LOG_FILE"
@@ -373,6 +388,24 @@ do_uninstall() {
     systemctl daemon-reload
     udevadm control --reload-rules 2>/dev/null || true
     print_success "System daemons reloaded"
+
+    # Remove example configuration file
+    print_step "Removing example configuration file..."
+    rm -f "/etc/motu-m4-optimizer.conf.example"
+    print_success "Removed example configuration file"
+
+    # Ask about user configuration file
+    if [ -f "$CONFIG_FILE" ]; then
+        echo ""
+        read -p "Do you want to remove your configuration file ($CONFIG_FILE)? [y/N] " -n 1 -r
+        echo
+        if [[ $REPLY =~ ^[Yy]$ ]]; then
+            rm -f "$CONFIG_FILE"
+            print_success "Removed configuration file"
+        else
+            print_info "Configuration file kept at $CONFIG_FILE"
+        fi
+    fi
 
     # Ask about log file
     echo ""
@@ -478,7 +511,8 @@ do_status() {
 
     # Check library directory
     if [ -d "$INSTALL_LIB" ]; then
-        local module_count=$(ls -1 "${INSTALL_LIB}/"*.sh 2>/dev/null | wc -l)
+        local module_count
+        module_count=$(ls -1 "${INSTALL_LIB}/"*.sh 2>/dev/null | wc -l)
         print_success "Library installed: $INSTALL_LIB ($module_count modules)"
     else
         print_error "Library NOT installed"
@@ -510,7 +544,8 @@ do_status() {
 
     # Check log file
     if [ -f "$LOG_FILE" ]; then
-        local log_size=$(du -h "$LOG_FILE" | cut -f1)
+        local log_size
+        log_size=$(du -h "$LOG_FILE" | cut -f1)
         print_success "Log file exists: $LOG_FILE ($log_size)"
     else
         print_info "Log file not created yet"

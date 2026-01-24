@@ -2,12 +2,106 @@
 
 # MOTU M4 Dynamic Optimizer - Monitor Module
 # Contains monitoring loops for continuous and live xrun monitoring
-
+#
+# ============================================================================
+# MODULE API REFERENCE
+# ============================================================================
+#
+# PUBLIC FUNCTIONS:
+#
+#   main_monitoring_loop()
+#     Continuous monitoring loop for systemd service.
+#     @return   : never (infinite loop)
+#     @requires : Root privileges
+#     @stdout   : Log messages via log_message()
+#     @behavior :
+#       - Every 5s: Check MOTU M4 connection
+#       - Every 30s: Re-apply process affinity
+#       - Every 10s: Monitor and log xruns
+#
+#   live_xrun_monitoring()
+#     Interactive real-time xrun monitoring.
+#     @return   : never (infinite loop, exit with Ctrl+C)
+#     @stdout   : Real-time status line updated every 2s
+#     @display  : [TIME] STATUS | MOTU | Audio | JACK | Session | 30s | Max | Timer
+#
+#   delayed_service_start()
+#     Boot-time optimization with wait for user audio services.
+#     @return   : void
+#     @requires : Root privileges
+#     @waits    : Up to MAX_AUDIO_WAIT seconds for PipeWire/JACK
+#     @calls    : activate_audio_optimizations or deactivate_audio_optimizations
+#
+# PRIVATE FUNCTIONS:
+#
+#   _check_and_report_xruns(last_count)
+#     Checks xruns and logs warnings if threshold exceeded.
+#     @param  last_count : int - Previous xrun count
+#     @exit              : Current xrun count (capped at 255)
+#     @stdout            : Warning messages via log_message()
+#
+#   _show_live_monitor_jack_info()
+#     Displays JACK status at live monitor start.
+#     @stdout : JACK settings and buffer warnings
+#
+#   _live_monitor_cycle(initial_xruns, session_start, max_xruns, timestamps...)
+#     Single update cycle for live monitoring.
+#     @param  initial_xruns : int - Baseline xrun count at session start
+#     @param  session_start : int - Unix epoch timestamp
+#     @param  max_xruns     : int - Maximum xruns seen this session
+#     @param  timestamps    : array - Recent xrun timestamps for 30s rate
+#     @stdout               : Updated status line via printf
+#
+#   _show_live_xrun_details(time, new_xruns, rate)
+#     Shows xrun details and recommendations on xrun events.
+#     @param  time      : string - Display time
+#     @param  new_xruns : int - New xruns in this interval
+#     @param  rate      : int - 30-second xrun rate
+#     @stdout           : Xrun details and buffer recommendations
+#
+# LOOP TIMING:
+#
+#   main_monitoring_loop:
+#     - Base interval: MONITOR_INTERVAL (5s)
+#     - Process check: Every 6 cycles (30s)
+#     - Xrun check: Every 2 cycles (10s)
+#
+#   live_xrun_monitoring:
+#     - Update interval: 2s
+#     - Rate window: 30s rolling
+#
+# DEPENDENCIES:
+#   - config.sh (OPTIMIZER_NAME, OPTIMIZER_VERSION, OPTIMIZER_STRATEGY,
+#                DAW_CPUS, AUDIO_MAIN_CPUS, IRQ_CPUS, BACKGROUND_CPUS,
+#                MONITOR_INTERVAL, MAX_AUDIO_WAIT, XRUN_WARNING_THRESHOLD)
+#   - logging.sh (log_message)
+#   - checks.sh (check_motu_m4, check_cpu_isolation)
+#   - jack.sh (get_jack_settings, calculate_latency_ms, get_jack_compact_info)
+#   - process.sh (optimize_script_performance, optimize_audio_process_affinity)
+#   - optimization.sh (activate_audio_optimizations, deactivate_audio_optimizations)
+#
 # ============================================================================
 # MAIN MONITORING LOOP
 # ============================================================================
+#
+# The main monitoring loop runs continuously as a system service.
+# It periodically checks for MOTU M4 connection and maintains optimizations.
+#
+# Loop behavior:
+#   - Every 5 seconds: Check MOTU M4 connection, activate/deactivate as needed
+#   - Every 30 seconds: Re-apply process affinity (catches new audio processes)
+#   - Every 10 seconds: Monitor for xruns and log warnings
 
 # Main monitoring loop for continuous optimization
+# Runs indefinitely, monitoring MOTU M4 connection and xrun activity.
+# This is the main entry point when running as a systemd service.
+#
+# The loop:
+#   1. Checks if MOTU M4 is connected
+#   2. Activates optimizations when connected (if not already active)
+#   3. Periodically re-applies process affinity for new processes
+#   4. Monitors xruns and logs warnings when thresholds exceeded
+#   5. Deactivates optimizations when MOTU M4 is disconnected
 main_monitoring_loop() {
     log_message "🚀 $OPTIMIZER_NAME v$OPTIMIZER_VERSION started"
     log_message "🏗️  $OPTIMIZER_STRATEGY"
@@ -96,8 +190,21 @@ _check_and_report_xruns() {
 # ============================================================================
 # LIVE XRUN MONITORING
 # ============================================================================
+#
+# Live monitoring provides real-time xrun feedback for interactive use.
+# It displays a continuously updating status line showing:
+#   - Current MOTU M4 and audio process status
+#   - Session xrun count and recent xrun rate
+#   - Dynamic recommendations when xruns occur
 
 # Live xrun monitoring with improved PipeWire-JACK-Tunnel detection
+# Interactive monitoring mode that updates every 2 seconds.
+# Shows real-time xrun statistics and provides immediate feedback.
+#
+# Display format:
+#   [TIME] STATUS MOTU: Connected | Audio: N | JACK: 256@48kHz | Session: N | 30s: N | Max: N | Timer
+#
+# Press Ctrl+C to exit.
 live_xrun_monitoring() {
     echo "=== MOTU M4 Live Xrun-Monitor ==="
     echo "⚡ Monitors JACK/PipeWire xruns in real-time"
@@ -161,7 +268,13 @@ _show_live_monitor_jack_info() {
 }
 
 # Single cycle of live monitoring
-# Args: $1 = initial_xruns, $2 = session_start, $3 = max_xruns, $4+ = timestamps
+# Performs one update cycle: queries journalctl, updates display, shows alerts.
+#
+# Args:
+#   $1 - Initial xrun count at session start (baseline)
+#   $2 - Session start timestamp (Unix epoch seconds)
+#   $3 - Maximum xruns seen in any interval this session
+#   $4+ - Array of recent xrun timestamps (for 30s rate calculation)
 _live_monitor_cycle() {
     local initial_xruns="$1"
     local xrun_session_start="$2"
@@ -296,8 +409,16 @@ _show_live_xrun_details() {
 # ============================================================================
 # DELAYED SERVICE START
 # ============================================================================
+#
+# When started as a system service at boot, user audio services (PipeWire,
+# JACK) may not be running yet. This function waits for them to appear
+# before applying optimizations.
 
 # Delayed optimization for system service (waits for user audio services)
+# Waits up to MAX_AUDIO_WAIT seconds for PipeWire/JACK to start.
+# This ensures process affinity optimizations are applied to user processes.
+#
+# Used by: systemd service (Type=oneshot with RemainAfterExit)
 delayed_service_start() {
     local motu_connected
     motu_connected=$(check_motu_m4)
