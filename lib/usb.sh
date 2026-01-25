@@ -166,12 +166,10 @@ _optimize_usb_transfer() {
 
     # Increase URB count for better buffer handling
     # Default is typically 2-4, increasing to 32 provides more buffering
+    # Note: urbnum is read-only on most systems, so this is best-effort
     if [ -e "$usb_device/urbnum" ]; then
-        if echo 32 > "$usb_device/urbnum" 2>/dev/null; then
+        { echo 32 > "$usb_device/urbnum"; } 2>/dev/null && \
             log_debug "    URB count increased to 32"
-        else
-            log_debug "    URB optimization: No permission (normal)"
-        fi
     fi
 }
 
