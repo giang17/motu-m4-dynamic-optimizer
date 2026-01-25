@@ -224,8 +224,9 @@ _set_process_affinity() {
         return 1
     fi
 
-    if taskset -cp "$cpus" "$pid" 2>/dev/null; then
-        log_debug "  $name process $pid pinned to P-Cores $cpus"
+    # Suppress taskset output and use our own log message with process name
+    if taskset -cp "$cpus" "$pid" > /dev/null 2>&1; then
+        log_info "  ✓ $name (PID $pid) → CPUs $cpus"
         return 0
     fi
 
