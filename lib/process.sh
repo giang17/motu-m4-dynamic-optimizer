@@ -312,8 +312,8 @@ optimize_script_performance() {
 
     # Pin script to Background E-Cores (8-13)
     if command -v taskset &> /dev/null; then
-        if taskset -cp "$BACKGROUND_CPUS" "$script_pid" 2>/dev/null; then
-            log_debug "📌 Script itself pinned to Background E-Cores $BACKGROUND_CPUS"
+        if taskset -cp "$BACKGROUND_CPUS" "$script_pid" > /dev/null 2>&1; then
+            log_info "  ✓ Optimizer (PID $script_pid) → CPUs $BACKGROUND_CPUS"
         fi
     fi
 

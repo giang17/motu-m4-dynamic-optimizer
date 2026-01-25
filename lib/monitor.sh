@@ -116,8 +116,8 @@ main_monitoring_loop() {
     # Optimize script performance (run on background E-Cores)
     optimize_script_performance
 
-    # Initial CPU isolation check
-    check_cpu_isolation
+    # Initial CPU isolation check (suppress output, info already in log_debug)
+    check_cpu_isolation > /dev/null
 
     local current_state="unknown"
     local check_counter=0
