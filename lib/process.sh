@@ -276,12 +276,18 @@ get_process_affinity() {
 
 # Get process priority
 # Args: $1 = PID
-# Returns: priority string or "N/A"
+# Returns: priority string in format "SCHED_FIFO:99" or "N/A"
 get_process_priority() {
     local pid="$1"
 
     if command -v chrt &> /dev/null; then
-        chrt -p "$pid" 2>/dev/null | awk '{print $NF}' || echo "N/A"
+        local chrt_output policy priority
+        chrt_output=$(chrt -p "$pid" 2>/dev/null) || { echo "N/A"; return; }
+        # Extract policy (SCHED_FIFO, SCHED_OTHER, etc.) from first line
+        policy=$(echo "$chrt_output" | head -1 | awk '{print $NF}')
+        # Extract priority number from second line
+        priority=$(echo "$chrt_output" | tail -1 | awk '{print $NF}')
+        echo "${policy}:${priority}"
     else
         echo "N/A"
     fi
@@ -358,7 +364,7 @@ list_audio_processes() {
                 local affinity priority
                 affinity=$(get_process_affinity "$pid")
                 priority=$(get_process_priority "$pid")
-                echo "   $process_name ($pid): CPUs=$affinity, Prio=$priority"
+                echo "   $process_name ($pid): CPUs=$affinity, $priority"
             fi
         done
     else
@@ -382,5 +388,5 @@ get_script_performance_info() {
         ionice_info="N/A"
     fi
 
-    echo "   Optimizer ($script_pid): CPUs=$affinity, Prio=$priority, IO=$ionice_info"
+    echo "   Optimizer ($script_pid): CPUs=$affinity, $priority, IO=$ionice_info"
 }
