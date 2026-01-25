@@ -237,6 +237,14 @@ live_xrun_monitoring() {
     echo "🛑 Press Ctrl+C to exit"
     echo ""
 
+    # Print placeholder lines for multi-line update mode (narrow terminals)
+    local term_width
+    term_width=$(tput cols 2>/dev/null || echo "80")
+    if [ "$term_width" -lt 100 ]; then
+        echo ""  # Placeholder line 1
+        echo ""  # Placeholder line 2
+    fi
+
     # Initial xrun counter from current log state
     local initial_xruns=0
     if command -v journalctl &> /dev/null; then
@@ -369,7 +377,7 @@ _live_monitor_cycle() {
     [ "$new_xruns_this_interval" -gt 0 ] && status_icon="⚠️"
     [ "$new_xruns_this_interval" -gt 2 ] && status_icon="❌"
 
-    # Live display with JACK settings (compact)
+    # Live display with JACK settings (compact, multi-line for readability)
     local current_display_time
     current_display_time=$(date '+%H:%M:%S')
 
@@ -377,9 +385,25 @@ _live_monitor_cycle() {
     local jack_compact
     jack_compact=$(get_jack_compact_info)
 
-    printf "\r[%s] %s MOTU M4: %s | 🎯 Audio: %d | %s | ⚠️ Session: %d | 🔥 30s: %d | 📈 Max: %d | ⏱️ %02d:%02d" \
-           "$current_display_time" "$status_icon" "$motu_status" "$audio_processes" "$jack_compact" \
-           "$xrun_total" "$xrun_rate_30s" "$max_xruns_per_interval" "$session_minutes" "$session_seconds"
+    # Get terminal width for adaptive display
+    local term_width
+    term_width=$(tput cols 2>/dev/null || echo "80")
+
+    # Clear line and move cursor up for update (multi-line display)
+    # Use ANSI escape codes: \033[K = clear to end of line, \033[A = move up
+    if [ "$term_width" -lt 100 ]; then
+        # Compact multi-line format for narrow terminals
+        printf "\033[2A\033[K[%s] %s MOTU: %s | Audio: %d\n" \
+               "$current_display_time" "$status_icon" "$motu_status" "$audio_processes"
+        printf "\033[K%s | Xruns: %d | 30s: %d | Max: %d | %02d:%02d\n" \
+               "$jack_compact" "$xrun_total" "$xrun_rate_30s" "$max_xruns_per_interval" \
+               "$session_minutes" "$session_seconds"
+    else
+        # Single-line format for wide terminals
+        printf "\r\033[K[%s] %s MOTU: %s | Audio: %d | %s | Xruns: %d | 30s: %d | Max: %d | %02d:%02d" \
+               "$current_display_time" "$status_icon" "$motu_status" "$audio_processes" "$jack_compact" \
+               "$xrun_total" "$xrun_rate_30s" "$max_xruns_per_interval" "$session_minutes" "$session_seconds"
+    fi
 
     # On new xruns: New line with details and recommendations
     if [ "$new_xruns_this_interval" -gt 0 ]; then

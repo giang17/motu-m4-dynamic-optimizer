@@ -216,6 +216,48 @@ action_stop_optimization() {
 # TRAY MANAGEMENT
 # ============================================================================
 
+# Show popup menu on left-click (called via --command)
+# Uses yad --list to display a clickable menu dialog
+# shellcheck disable=SC2317
+show_popup_menu() {
+    local choice
+    choice=$(yad --list \
+        --title="$TRAY_NAME" \
+        --width=280 \
+        --height=320 \
+        --column="Aktion" \
+        --no-headers \
+        --print-column=1 \
+        --button="Schliessen:1" \
+        "Status anzeigen" \
+        "Live Xrun-Monitor" \
+        "Daemon-Monitor" \
+        "---" \
+        "Optimierung starten" \
+        "Optimierung stoppen" \
+        2>/dev/null)
+
+    case "$choice" in
+        "Status anzeigen"*)
+            x-terminal-emulator -e bash -c "$OPTIMIZER_CMD status; echo; read -p 'Druecke Enter...'" &
+            ;;
+        "Live Xrun-Monitor"*)
+            x-terminal-emulator -e "$OPTIMIZER_CMD" live-xruns &
+            ;;
+        "Daemon-Monitor"*)
+            x-terminal-emulator -e bash -c "pkexec $OPTIMIZER_CMD monitor" &
+            ;;
+        "Optimierung starten"*)
+            pkexec "$OPTIMIZER_CMD" once &
+            ;;
+        "Optimierung stoppen"*)
+            pkexec "$OPTIMIZER_CMD" stop &
+            ;;
+    esac
+}
+export -f show_popup_menu
+export OPTIMIZER_CMD TRAY_NAME
+
 cleanup() {
     # Clean up on exit
     [ -n "$YAD_PID" ] && kill "$YAD_PID" 2>/dev/null
@@ -286,6 +328,7 @@ start_tray() {
     # Note: yad executes these as shell commands, so we use full paths and inline commands
     local menu="Status anzeigen!x-terminal-emulator -e bash -c '${OPTIMIZER_CMD} status; echo; read -p \"Druecke Enter...\"'"
     menu+="|Live Xrun-Monitor!x-terminal-emulator -e ${OPTIMIZER_CMD} live-xruns"
+    menu+="|Daemon-Monitor!x-terminal-emulator -e bash -c 'pkexec ${OPTIMIZER_CMD} monitor'"
     menu+="|---"
     menu+="|Optimierung starten!pkexec ${OPTIMIZER_CMD} once"
     menu+="|Optimierung stoppen!pkexec ${OPTIMIZER_CMD} stop"
@@ -304,7 +347,7 @@ start_tray() {
         --image="$initial_icon" \
         --text="$TRAY_NAME" \
         --menu="$menu" \
-        --command="action_status" \
+        --command="bash -c show_popup_menu" \
         --listen <&3 &
 
     YAD_PID=$!
