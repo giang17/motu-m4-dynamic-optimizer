@@ -252,8 +252,12 @@ get_system_xruns() {
         # General audio problems
         recent_xruns=$(journalctl --since "5 minutes ago" 2>/dev/null | grep -iE "(audio|sound).*(xrun|underrun|overrun|drop|timeout|delay)" | wc -l || echo "0")
 
-        # Hardware errors
-        severe_xruns=$(journalctl --since "5 minutes ago" 2>/dev/null | grep -iE "(usb|audio).*(error|fail|disconnect|reset)" | wc -l || echo "0")
+        # Hardware errors - only count actual critical issues, not routine resets
+        # Exclude common non-critical messages like "reset high-speed USB device"
+        severe_xruns=$(journalctl --since "5 minutes ago" 2>/dev/null | \
+            grep -iE "(usb|audio|snd).*(error|fail|disconnect|timeout|cannot)" | \
+            grep -viE "reset.*device|device descriptor|enabled|configured" | \
+            wc -l || echo "0")
     fi
 
     # Dmesg for USB audio problems (with sudo fallback)

@@ -616,40 +616,46 @@ _show_xrun_performance_summary() {
     fi
 
     # Audio performance with consistent assessment
+    # Thresholds: 0 = perfect, 1-2 = minor (ignore at startup), 3-9 = occasional, 10+ = frequent
     if [ "$total_current_xruns" -eq 0 ] && [ "$recent_xruns" -eq 0 ]; then
         echo "   ✅ Audio performance: No problems"
         if [ "$jack_status" = "✅ Active" ]; then
-            echo "       ${bufsize}@${samplerate}Hz running optimally stable"
+            echo "       ${bufsize}@${samplerate}Hz running stable"
         fi
-    elif [ "$total_current_xruns" -lt 5 ] && [ "$severe_xruns" -eq 0 ]; then
-        echo "   🟡 Audio-Performance: Occasional problems ($total_current_xruns Xruns)"
+    elif [ "$total_current_xruns" -le 2 ] && [ "$severe_xruns" -eq 0 ]; then
+        # 1-2 xruns are often just startup artifacts, don't alarm the user
+        echo "   ✅ Audio performance: Good ($total_current_xruns minor xruns)"
+    elif [ "$total_current_xruns" -lt 10 ] && [ "$severe_xruns" -eq 0 ]; then
+        echo "   🟡 Audio performance: Occasional issues ($total_current_xruns xruns)"
         _show_buffer_recommendation "$jack_status" "$bufsize"
     else
-        echo "   🔴 Audio-Performance: Frequent problems ($total_current_xruns Xruns)"
+        echo "   🔴 Audio performance: Frequent issues ($total_current_xruns xruns)"
         _show_severe_buffer_recommendation "$jack_status" "$bufsize" "$samplerate"
     fi
 
-    [ "$severe_xruns" -gt 0 ] && echo "   ❌ Additional: Hardware errors ($severe_xruns in 5min)"
+    # Only show hardware errors if there are actual critical errors (not just resets)
+    [ "$severe_xruns" -gt 2 ] && echo "   ⚠️  System: $severe_xruns USB/audio events in last 5min (check journalctl)"
 
     echo ""
     _show_dynamic_buffer_recommendations "$jack_status" "$bufsize" "$samplerate" "$nperiods" "$total_current_xruns"
 }
 
-# Show buffer recommendation for mild issues
+# Show buffer recommendation for mild issues (occasional xruns)
 _show_buffer_recommendation() {
     local jack_status="$1"
     local bufsize="$2"
 
     if [ "$jack_status" = "✅ Active" ] && [ "$bufsize" != "unknown" ]; then
-        if [ "$bufsize" -le 128 ]; then
-            echo "       💡 For frequent problems: Increase buffer from $bufsize to 256 samples"
-        elif [ "$bufsize" -le 256 ]; then
-            echo "       💡 For frequent problems: Increase buffer from $bufsize to 512 samples"
+        if [ "$bufsize" -le 64 ]; then
+            echo "       💡 Tip: Consider increasing buffer from $bufsize to 128 samples"
+        elif [ "$bufsize" -le 128 ]; then
+            echo "       💡 Tip: Consider increasing buffer from $bufsize to 256 samples"
         fi
+        # 256+ is already a good buffer size, no recommendation needed for occasional issues
     fi
 }
 
-# Show buffer recommendation for severe issues
+# Show buffer recommendation for severe issues (frequent xruns, 10+)
 _show_severe_buffer_recommendation() {
     local jack_status="$1"
     local bufsize="$2"
@@ -657,16 +663,18 @@ _show_severe_buffer_recommendation() {
 
     if [ "$jack_status" = "✅ Active" ] && [ "$bufsize" != "unknown" ]; then
         if [ "$bufsize" -le 64 ]; then
-            echo "       💡 Immediate action: Increase buffer from $bufsize to 256+ samples"
+            echo "       💡 Recommendation: Increase buffer from $bufsize to 128-256 samples"
         elif [ "$bufsize" -le 128 ]; then
-            echo "       💡 Recommendation: Increase buffer from $bufsize to 512 samples"
+            echo "       💡 Recommendation: Increase buffer from $bufsize to 256 samples"
         elif [ "$bufsize" -le 256 ]; then
-            echo "       💡 Increase buffer from $bufsize to 1024 Samples or higher"
+            echo "       💡 Recommendation: Try increasing buffer from $bufsize to 512 samples"
+        elif [ "$bufsize" -le 512 ]; then
+            echo "       💡 Recommendation: Try increasing buffer from $bufsize to 1024 samples"
         else
-            echo "       💡 Buffer already very high ($bufsize) - system optimization needed"
+            echo "       💡 Buffer already high ($bufsize) - check system load or USB issues"
         fi
         if [ "$samplerate" != "unknown" ] && [ "$samplerate" -gt 48000 ]; then
-            echo "       💡 Or reduce sample rate from ${samplerate}Hz to 48kHz"
+            echo "       💡 Alternative: Reduce sample rate from ${samplerate}Hz to 48kHz"
         fi
     fi
 }
