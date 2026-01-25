@@ -356,10 +356,10 @@ _live_monitor_cycle() {
         max_xruns_per_interval=$new_xruns_this_interval
     fi
 
-    # Audio process info
+    # Audio process info (uses AUDIO_GREP_PATTERN from config)
     local audio_processes
     audio_processes=$(ps -eo pid,comm --no-headers 2>/dev/null | \
-        grep -E "jackd|pipewire|yoshimi|pianoteq|qjackctl" | wc -l)
+        grep -iE "$AUDIO_GREP_PATTERN" | wc -l)
 
     # MOTU M4 status
     local motu_status="❌ Not detected"
