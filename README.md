@@ -227,6 +227,10 @@ See [README-HYBRID.md](README-HYBRID.md) for comprehensive documentation includi
 - Performance monitoring
 - GRUB parameters for best performance
 
+## Releases
+
+For release notes with download links, see [GitHub Releases](https://github.com/giang17/motu-m4-dynamic-optimizer/releases).
+
 ## License
 
 This project is licensed under the MIT License — see [LICENSE](LICENSE) for details.
