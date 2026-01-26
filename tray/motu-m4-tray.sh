@@ -398,23 +398,29 @@ start_tray() {
     exec 3<> "$FIFO_PATH"
 
     # Start yad notification icon reading from FIFO
-    yad --notification \
+    # Use exec -a to set process name for KDE system tray display
+    (exec -a "MOTU-M4-Optimizer" yad --notification \
         --image="$initial_icon" \
         --text="$TRAY_NAME" \
         --menu="$menu" \
         --command="bash -c show_popup_menu" \
-        --listen <&3 &
+        --class="motu-m4-optimizer" \
+        --name="motu-m4-optimizer" \
+        --listen) <&3 &
 
     YAD_PID=$!
+
+    # Give yad time to initialize before sending commands
+    sleep 0.5
+
+    # Send initial tooltip immediately
+    local tooltip
+    tooltip=$(get_tooltip)
+    echo "tooltip:$tooltip" >&3
 
     # Start state monitor in background (uses fd 3 for writing)
     state_monitor &
     MONITOR_PID=$!
-
-    # Send initial tooltip
-    local tooltip
-    tooltip=$(get_tooltip)
-    echo "tooltip:$tooltip" >&3
 
     # Wait for yad to exit
     wait $YAD_PID
