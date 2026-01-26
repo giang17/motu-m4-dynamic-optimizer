@@ -10,14 +10,15 @@ A hybrid udev/systemd solution for optimizing Linux audio performance with the M
 - 🎛️ **Dynamic JACK settings detection** with contextual recommendations
 - 🔄 **Plug-and-play** without manual intervention
 - 🏗️ **Modular architecture** for easy maintenance and customization
-- 🖥️ **Optional system tray icon** for visual status display (requires yad)
+- 🖥️ **Optional system tray icon** for visual status display (PyQt5 or yad)
 
 ## Requirements
 
 - Linux (Ubuntu 24.04 or compatible distribution)
 - MOTU M4 Audio Interface
 - Root privileges for installation
-- Optional: `yad` package for system tray icon (`sudo apt install yad`)
+- Optional: `python3-pyqt5` for system tray icon (`sudo apt install python3-pyqt5`)
+  - Alternative: `yad` package (`sudo apt install yad`)
 
 ## Quick Installation
 
@@ -110,7 +111,8 @@ motu-m4-dynamic-optimizer/
 │   ├── monitor.sh                   # Monitoring loops
 │   └── tray.sh                      # System tray integration (optional)
 ├── tray/                            # System tray application
-│   ├── motu-m4-tray.sh              # Tray icon application
+│   ├── motu-m4-tray.py              # Tray icon (PyQt5, preferred)
+│   ├── motu-m4-tray.sh              # Tray icon (yad fallback)
 │   ├── motu-m4-tray.desktop         # Desktop entry
 │   └── icons/                       # Status icons (SVG)
 ├── motu-m4-dynamic-optimizer.service
@@ -150,14 +152,23 @@ The optimizer includes an optional system tray icon for visual status display.
 ### Requirements
 
 ```bash
+# Recommended (better KDE/Qt integration)
+sudo apt install python3-pyqt5
+
+# Alternative (fallback)
 sudo apt install yad
 ```
+
+The installer automatically selects PyQt5 if available, otherwise falls back to yad.
 
 ### Usage
 
 ```bash
 # Start the tray icon manually
 motu-m4-tray
+
+# For development/testing with local icons
+TRAY_ICON_DIR=./tray/icons python3 ./tray/motu-m4-tray.py
 ```
 
 ### Features
@@ -168,9 +179,12 @@ motu-m4-tray
   - 🟠 Orange: Warning (xruns detected)
   - ⚫ Gray: MOTU M4 not connected
 
+- **Tooltip**: Shows current status, JACK state, and xrun count
+
 - **Right-click Menu**:
   - Status anzeigen (View status in terminal)
   - Live Xrun-Monitor (Open live monitoring)
+  - Daemon-Monitor (Open daemon monitoring)
   - Optimierung starten/stoppen (Start/stop optimization)
 
 ### Configuration

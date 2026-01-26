@@ -129,7 +129,7 @@ check_source_files() {
 # TRAY INSTALLATION
 # ============================================================================
 
-# Install tray components (optional - requires yad)
+# Install tray components (optional - requires python3-pyqt5)
 install_tray_components() {
     local tray_dir="${SCRIPT_DIR}/tray"
 
@@ -139,19 +139,25 @@ install_tray_components() {
         return 0
     fi
 
-    # Check if yad is available
-    if ! command -v yad &> /dev/null; then
-        print_warning "yad is not installed - skipping tray components"
-        print_info "To enable system tray, install yad: sudo apt install yad"
+    # Check if PyQt5 is available (prefer Python version over yad)
+    local use_python=false
+    if python3 -c "from PyQt5.QtWidgets import QSystemTrayIcon" 2>/dev/null; then
+        use_python=true
+    elif ! command -v yad &> /dev/null; then
+        print_warning "Neither python3-pyqt5 nor yad is installed - skipping tray components"
+        print_info "To enable system tray, install: sudo apt install python3-pyqt5"
         return 0
     fi
 
     print_step "Installing system tray components..."
 
-    # Install tray script
-    if [ -f "${tray_dir}/motu-m4-tray.sh" ]; then
+    # Install tray script (prefer Python version)
+    if [ "$use_python" = true ] && [ -f "${tray_dir}/motu-m4-tray.py" ]; then
+        install -m 755 "${tray_dir}/motu-m4-tray.py" "${INSTALL_BIN}/motu-m4-tray"
+        print_success "Installed Python tray: ${INSTALL_BIN}/motu-m4-tray"
+    elif [ -f "${tray_dir}/motu-m4-tray.sh" ]; then
         install -m 755 "${tray_dir}/motu-m4-tray.sh" "${INSTALL_BIN}/motu-m4-tray"
-        print_success "Installed tray script: ${INSTALL_BIN}/motu-m4-tray"
+        print_success "Installed Bash tray: ${INSTALL_BIN}/motu-m4-tray"
     fi
 
     # Install icons
