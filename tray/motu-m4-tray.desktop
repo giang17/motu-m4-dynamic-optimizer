@@ -2,7 +2,7 @@
 Name=MOTU M4 Optimizer Tray
 GenericName=Audio Optimizer Tray
 Comment=System tray icon for MOTU M4 Dynamic Optimizer
-Exec=/usr/bin/motu-m4-tray
+Exec=motu-m4-tray
 Icon=/usr/share/icons/motu-m4/motu-optimized.svg
 Terminal=false
 Type=Application
