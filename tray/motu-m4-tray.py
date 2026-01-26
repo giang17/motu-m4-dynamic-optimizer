@@ -24,7 +24,7 @@ import subprocess
 from pathlib import Path
 
 from PyQt5.QtWidgets import QApplication, QSystemTrayIcon, QMenu, QAction
-from PyQt5.QtGui import QIcon, QPixmap, QPainter, QColor, QBrush, QPen
+from PyQt5.QtGui import QIcon, QPixmap, QPainter, QColor, QBrush, QPen, QCursor
 from PyQt5.QtCore import QTimer, Qt, QRectF
 from PyQt5.QtSvg import QSvgRenderer
 
@@ -303,8 +303,9 @@ class MotuM4Tray(QSystemTrayIcon):
         """Handle tray icon activation (left-click)."""
         if reason == QSystemTrayIcon.Trigger:
             # Show context menu on left-click too
+            # Use cursor position for correct multi-monitor placement
             if self.contextMenu():
-                self.contextMenu().popup(self.geometry().center())
+                self.contextMenu().popup(QCursor.pos())
 
     def find_terminal(self) -> str:
         """Find available terminal emulator."""
