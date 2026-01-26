@@ -37,6 +37,9 @@ ICON_CONNECTED="${ICON_DIR}/motu-connected.svg"
 ICON_WARNING="${ICON_DIR}/motu-warning.svg"
 ICON_DISCONNECTED="${ICON_DIR}/motu-disconnected.svg"
 
+# MOTU M4 detection
+MOTU_CARD_ID="${MOTU_CARD_ID:-M4}"
+
 # PID tracking
 YAD_PID=""
 MONITOR_PID=""
@@ -89,10 +92,43 @@ check_dependencies() {
     fi
 }
 
-# Get current icon based on state file
-get_current_icon() {
-    local state="disconnected"
+# Check if MOTU M4 is connected (independent of daemon state file)
+# This allows the tray to detect device status even when daemon is not running
+check_motu_m4_connected() {
+    # Check ALSA cards - primary detection method
+    for card in /proc/asound/card*; do
+        if [ -e "$card/id" ]; then
+            local card_id
+            card_id=$(cat "$card/id" 2>/dev/null)
+            if [ "$card_id" = "$MOTU_CARD_ID" ]; then
+                echo "true"
+                return
+            fi
+        fi
+    done
 
+    # Additional USB check if not found via ALSA
+    if lsusb 2>/dev/null | grep -q "Mark of the Unicorn"; then
+        echo "true"
+        return
+    fi
+
+    echo "false"
+}
+
+# Get current icon based on actual device status and state file
+get_current_icon() {
+    # First check actual device connection (takes priority over state file)
+    local motu_connected
+    motu_connected=$(check_motu_m4_connected)
+
+    if [ "$motu_connected" = "false" ]; then
+        echo "$ICON_DISCONNECTED"
+        return
+    fi
+
+    # Device is connected - check state file for optimization status
+    local state="connected"
     if [ -f "$STATE_FILE" ]; then
         state=$(grep "^state=" "$STATE_FILE" 2>/dev/null | cut -d'=' -f2)
     fi
@@ -101,22 +137,31 @@ get_current_icon() {
         optimized)
             echo "$ICON_OPTIMIZED"
             ;;
-        connected)
-            echo "$ICON_CONNECTED"
-            ;;
         warning)
             echo "$ICON_WARNING"
             ;;
-        disconnected|*)
-            echo "$ICON_DISCONNECTED"
+        connected|*)
+            echo "$ICON_CONNECTED"
             ;;
     esac
 }
 
-# Get tooltip text based on state file
+# Get tooltip text based on actual device status and state file
 # Returns a single-line tooltip (yad doesn't support multi-line tooltips well)
 get_tooltip() {
-    local state="disconnected"
+    local tooltip="$TRAY_NAME"
+
+    # First check actual device connection
+    local motu_connected
+    motu_connected=$(check_motu_m4_connected)
+
+    if [ "$motu_connected" = "false" ]; then
+        echo "$tooltip | Getrennt"
+        return
+    fi
+
+    # Device is connected - read additional info from state file
+    local state="connected"
     local jack="inactive"
     local jack_settings="unknown"
     local xruns="0"
@@ -128,20 +173,15 @@ get_tooltip() {
         xruns=$(grep "^xruns_30s=" "$STATE_FILE" 2>/dev/null | cut -d'=' -f2)
     fi
 
-    local tooltip="$TRAY_NAME"
-
     case "$state" in
         optimized)
             tooltip+=" | Optimiert"
             ;;
-        connected)
-            tooltip+=" | Verbunden"
-            ;;
         warning)
             tooltip+=" | Warnung!"
             ;;
-        disconnected|*)
-            tooltip+=" | Getrennt"
+        connected|*)
+            tooltip+=" | Verbunden"
             ;;
     esac
 
@@ -266,42 +306,60 @@ cleanup() {
     exit 0
 }
 
-# Monitor state file and update tray
+# Monitor device status and state file, update tray accordingly
+# Uses file descriptor 3 which must be opened before calling this function
 state_monitor() {
     local last_state=""
     local last_xruns="0"
+    local last_motu_connected=""
 
     while true; do
-        if [ -f "$STATE_FILE" ]; then
-            local current_state
-            local current_xruns
-            current_state=$(grep "^state=" "$STATE_FILE" 2>/dev/null | cut -d'=' -f2)
-            current_xruns=$(grep "^xruns_30s=" "$STATE_FILE" 2>/dev/null | cut -d'=' -f2)
+        # Check actual device connection (independent of state file)
+        local motu_connected
+        motu_connected=$(check_motu_m4_connected)
 
-            # Update icon if state changed
-            if [ "$current_state" != "$last_state" ]; then
-                local new_icon
-                new_icon=$(get_current_icon)
-                echo "icon:$new_icon" > "$FIFO_PATH" 2>/dev/null
+        # Determine current effective state
+        local current_state="disconnected"
+        local current_xruns="0"
 
-                # Update tooltip
-                local tooltip
-                tooltip=$(get_tooltip)
-                echo "tooltip:$tooltip" > "$FIFO_PATH" 2>/dev/null
-
-                last_state="$current_state"
+        if [ "$motu_connected" = "true" ]; then
+            # Device connected - read state file for optimization status
+            if [ -f "$STATE_FILE" ]; then
+                current_state=$(grep "^state=" "$STATE_FILE" 2>/dev/null | cut -d'=' -f2)
+                current_xruns=$(grep "^xruns_30s=" "$STATE_FILE" 2>/dev/null | cut -d'=' -f2)
+            else
+                current_state="connected"
             fi
+        else
+            current_state="disconnected"
+        fi
 
-            # Check for xrun increase
+        # Update icon if device connection or state changed
+        if [ "$motu_connected" != "$last_motu_connected" ] || [ "$current_state" != "$last_state" ]; then
+            local new_icon
+            new_icon=$(get_current_icon)
+            echo "icon:$new_icon" >&3
+
+            # Update tooltip
+            local tooltip
+            tooltip=$(get_tooltip)
+            echo "tooltip:$tooltip" >&3
+
+            last_motu_connected="$motu_connected"
+            last_state="$current_state"
+        fi
+
+        # Check for xrun increase (only when device is connected)
+        if [ "$motu_connected" = "true" ]; then
             if [ "$current_xruns" != "$last_xruns" ] && [ "$current_xruns" -gt 0 ] 2>/dev/null; then
                 if [ "$current_xruns" -gt "${last_xruns:-0}" ]; then
                     # Show warning icon temporarily
-                    echo "icon:$ICON_WARNING" > "$FIFO_PATH" 2>/dev/null
+                    echo "icon:$ICON_WARNING" >&3
                     sleep 2
                     # Restore normal icon
                     local restore_icon
                     restore_icon=$(get_current_icon)
-                    echo "icon:$restore_icon" > "$FIFO_PATH" 2>/dev/null
+                    echo "icon:$restore_icon" >&3
                 fi
                 last_xruns="$current_xruns"
             fi
@@ -335,14 +393,11 @@ start_tray() {
     menu+="|---"
     menu+="|Beenden!quit"
 
-    # Start state monitor in background
-    state_monitor &
-    MONITOR_PID=$!
-
-    # Start yad notification icon
-    # The tail -f keeps the FIFO open for writing
+    # Open FIFO for read/write on file descriptor 3 BEFORE starting monitor
+    # This ensures the monitor can write to it
     exec 3<> "$FIFO_PATH"
 
+    # Start yad notification icon reading from FIFO
     yad --notification \
         --image="$initial_icon" \
         --text="$TRAY_NAME" \
@@ -352,10 +407,14 @@ start_tray() {
 
     YAD_PID=$!
 
+    # Start state monitor in background (uses fd 3 for writing)
+    state_monitor &
+    MONITOR_PID=$!
+
     # Send initial tooltip
     local tooltip
     tooltip=$(get_tooltip)
-    echo "tooltip:$tooltip" > "$FIFO_PATH"
+    echo "tooltip:$tooltip" >&3
 
     # Wait for yad to exit
     wait $YAD_PID
