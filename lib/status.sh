@@ -72,7 +72,7 @@
 #       @param  bufsize     : int|string - Buffer size
 #       @param  samplerate  : int|string - Sample rate
 #       @stdout             : Buffer recommendations for severe issues
-#     _show_dynamic_buffer_recommendations(jack_status, bufsize, samplerate, nperiods, xruns)
+#     _show_dynamic_buffer_recommendations(jack_status, bufsize, samplerate, nperiods, xruns, severe_xruns)
 #       @param  jack_status : string - JACK status
 #       @param  bufsize     : int|string - Buffer size
 #       @param  samplerate  : int|string - Sample rate
@@ -616,8 +616,8 @@ _show_xrun_performance_summary() {
     fi
 
     # Audio performance with consistent assessment
-    # Thresholds: 0 = perfect, 1-2 = minor (ignore at startup), 3-9 = occasional, 10+ = frequent
-    if [ "$total_current_xruns" -eq 0 ] && [ "$recent_xruns" -eq 0 ]; then
+    # Thresholds: 0 = perfect, 1-2 = minor, 3-9 = occasional, 10+ or severe_xruns = frequent
+    if [ "$total_current_xruns" -eq 0 ] && [ "$recent_xruns" -eq 0 ] && [ "$severe_xruns" -eq 0 ]; then
         echo "   ✅ Audio performance: No problems"
         if [ "$jack_status" = "✅ Active" ]; then
             echo "       ${bufsize}@${samplerate}Hz running stable"
@@ -628,16 +628,20 @@ _show_xrun_performance_summary() {
     elif [ "$total_current_xruns" -lt 10 ] && [ "$severe_xruns" -eq 0 ]; then
         echo "   🟡 Audio performance: Occasional issues ($total_current_xruns xruns)"
         _show_buffer_recommendation "$jack_status" "$bufsize"
-    else
+    elif [ "$total_current_xruns" -ge 10 ]; then
         echo "   🔴 Audio performance: Frequent issues ($total_current_xruns xruns)"
         _show_severe_buffer_recommendation "$jack_status" "$bufsize" "$samplerate"
+    else
+        # severe_xruns > 0 but low total_current_xruns - likely USB/system events
+        echo "   🟡 Audio performance: System events detected ($severe_xruns USB/audio events)"
+        echo "       💡 Check: journalctl -p 3 --since '5 min ago' | grep -i 'usb\|audio'"
     fi
 
     # Only show hardware errors if there are actual critical errors (not just resets)
     [ "$severe_xruns" -gt 2 ] && echo "   ⚠️  System: $severe_xruns USB/audio events in last 5min (check journalctl)"
 
     echo ""
-    _show_dynamic_buffer_recommendations "$jack_status" "$bufsize" "$samplerate" "$nperiods" "$total_current_xruns"
+    _show_dynamic_buffer_recommendations "$jack_status" "$bufsize" "$samplerate" "$nperiods" "$total_current_xruns" "$severe_xruns"
 }
 
 # Show buffer recommendation for mild issues (occasional xruns)
@@ -686,6 +690,7 @@ _show_dynamic_buffer_recommendations() {
     local samplerate="$3"
     local nperiods="$4"
     local total_current_xruns="$5"
+    local severe_xruns="${6:-0}"
 
     echo "💡 Dynamic buffer recommendations based on current settings:"
 
@@ -714,7 +719,12 @@ _show_dynamic_buffer_recommendations() {
                 local safe_latency
                 safe_latency=$(calculate_latency_ms "$safe_buffer" "$samplerate")
                 echo "   🟡 Stability: $safe_buffer Samples = ${safe_latency}ms recommended"
+            else
+                echo "   ✅ Buffer already in stable range"
             fi
+        elif [ "$severe_xruns" -gt 0 ] && [ "$total_current_xruns" -lt 5 ]; then
+            # USB/system events but no audio xruns - buffer is fine
+            echo "   ✅ Buffer OK - system events are not audio-related"
         else
             # Standard recommendations for few/no xruns
             if [ "$bufsize" -le 64 ]; then
